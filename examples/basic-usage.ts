@@ -1,5 +1,5 @@
 // Basic client usage example
-import { TurKeyClient, CookieTokenStorage } from '@turkey/sdk'
+import { TurKeyClient, CookieTokenStorage } from '@jimmyjames88/turkey-sdk'
 
 async function example() {
   // Initialize the client

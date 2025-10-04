@@ -1,6 +1,6 @@
 // React example with hooks
 import React from 'react'
-import { TurKeyClient, AuthProvider, useTurkey } from '@turkey/sdk'
+import { TurKeyClient, AuthProvider, useTurkey } from '@jimmyjames88/turkey-sdk'
 
 // Initialize client
 const client = new TurKeyClient({

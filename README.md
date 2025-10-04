@@ -16,7 +16,7 @@ A TypeScript SDK for seamless integration with TurKey JWT authentication service
 ## Installation
 
 ```bash
-npm install @turkey/sdk
+npm install @jimmyjames88/turkey-sdk
 ```
 
 ## Quick Start
@@ -24,7 +24,7 @@ npm install @turkey/sdk
 ### Basic Usage
 
 ```typescript
-import { TurKeyClient, CookieTokenStorage } from '@turkey/sdk'
+import { TurKeyClient, CookieTokenStorage } from '@jimmyjames88/turkey-sdk'
 
 const client = new TurKeyClient({
   baseUrl: 'https://auth.yourapp.com',
@@ -51,7 +51,7 @@ const userInfo = client.getUserFromToken(accessToken)
 ### React Integration
 
 ```tsx
-import { AuthProvider, useTurkey } from '@turkey/sdk'
+import { TurKeyClient, AuthProvider, useTurkey } from '@jimmyjames88/turkey-sdk'
 
 function App() {
   const client = new TurKeyClient({
@@ -471,7 +471,7 @@ const shopToken = await shopClient.login({ ... })
 ## Error Handling
 
 ```typescript
-import { TurKeyAuthError } from '@turkey/sdk'
+import { TurKeyAuthError } from '@jimmyjames88/turkey-sdk'
 
 try {
   await client.login({ ... })
