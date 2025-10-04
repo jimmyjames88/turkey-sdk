@@ -1,11 +1,19 @@
 {
-  "name": "@turkey/sdk",
+  "name": "@jimmyjames88/turkey-sdk",
   "version": "0.1.0",
   "description": "TypeScript SDK for TurKey JWT authentication service",
   "type": "module",
   "main": "dist/index.js",
   "module": "dist/index.esm.js",
   "types": "dist/index.d.ts",
+  "private": false,
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jimmyjames88/turkey-sdk.git"
+  },
   "files": [
     "dist"
   ],
@@ -19,7 +27,8 @@
     "lint:fix": "eslint src --ext .ts,.tsx --fix",
     "type-check": "tsc --noEmit",
     "dev": "rollup -c -w",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "publish:github": "npm publish"
   },
   "keywords": [
     "authentication",
@@ -60,9 +69,5 @@
     "react": {
       "optional": true
     }
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/jimmyjames88/turkey-sdk.git"
   }
 }
