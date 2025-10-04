@@ -95,15 +95,297 @@ new TurKeyClient(config: TurKeyConfig)
 
 #### Methods
 
-- `login(params)` - Authenticate user and return tokens
-- `register(params)` - Register new user and return tokens  
-- `refresh(params)` - Refresh access token
-- `logout(accessToken)` - Logout current session
-- `logoutAll(accessToken)` - Logout all sessions
-- `verifyToken(token, audience?)` - Verify JWT token
-- `decodeToken(token)` - Decode token without verification
-- `getUserFromToken(token)` - Extract user info from token
-- `isTokenExpired(token)` - Check if token is expired
+##### Authentication Methods
+
+###### `login(params: LoginParams): Promise<AuthResponse>`
+
+Authenticate a user with email/password credentials.
+
+**Parameters:**
+```typescript
+interface LoginParams {
+  email: string        // User's email address
+  password: string     // User's password
+  tenantId: string     // Tenant identifier
+}
+```
+
+**Returns:**
+```typescript
+interface AuthResponse {
+  user: {
+    id: string
+    email: string
+    role: string
+    tenantId: string
+  }
+  accessToken: string    // JWT access token
+  refreshToken: string   // JWT refresh token
+}
+```
+
+**Example:**
+```typescript
+try {
+  const response = await client.login({
+    email: 'user@example.com',
+    password: 'securepassword',
+    tenantId: 'my-tenant'
+  })
+  
+  console.log('Logged in user:', response.user)
+  // Store tokens securely
+  storage.setTokens(response.accessToken, response.refreshToken)
+} catch (error) {
+  console.error('Login failed:', error.message)
+}
+```
+
+---
+
+###### `register(params: RegisterParams): Promise<AuthResponse>`
+
+Register a new user account.
+
+**Parameters:**
+```typescript
+interface RegisterParams {
+  email: string        // User's email address
+  password: string     // User's password
+  tenantId: string     // Tenant identifier
+  role?: string        // User role (default: 'user')
+  metadata?: object    // Additional user metadata
+}
+```
+
+**Returns:** Same as `login()` - `AuthResponse`
+
+**Example:**
+```typescript
+try {
+  const response = await client.register({
+    email: 'newuser@example.com',
+    password: 'securepassword',
+    tenantId: 'my-tenant',
+    role: 'user',
+    metadata: { firstName: 'John', lastName: 'Doe' }
+  })
+  
+  console.log('User registered:', response.user)
+} catch (error) {
+  console.error('Registration failed:', error.message)
+}
+```
+
+---
+
+###### `refresh(params: RefreshParams): Promise<AuthResponse>`
+
+Refresh an expired access token using a refresh token.
+
+**Parameters:**
+```typescript
+interface RefreshParams {
+  refreshToken: string  // Valid refresh token
+}
+```
+
+**Returns:** `AuthResponse` with new tokens
+
+**Example:**
+```typescript
+try {
+  const response = await client.refresh({
+    refreshToken: storage.getRefreshToken()
+  })
+  
+  // Update stored tokens
+  storage.setTokens(response.accessToken, response.refreshToken)
+} catch (error) {
+  // Refresh token expired, redirect to login
+  console.error('Token refresh failed:', error.message)
+  redirectToLogin()
+}
+```
+
+---
+
+###### `logout(accessToken: string): Promise<void>`
+
+Logout the current session, invalidating the access token.
+
+**Parameters:**
+- `accessToken: string` - Current access token to invalidate
+
+**Example:**
+```typescript
+try {
+  await client.logout(storage.getAccessToken())
+  storage.clearTokens()
+  console.log('Logged out successfully')
+} catch (error) {
+  console.error('Logout failed:', error.message)
+}
+```
+
+---
+
+###### `logoutAll(accessToken: string): Promise<void>`
+
+Logout all sessions for the current user, invalidating all tokens.
+
+**Parameters:**
+- `accessToken: string` - Current access token
+
+**Example:**
+```typescript
+try {
+  await client.logoutAll(storage.getAccessToken())
+  storage.clearTokens()
+  console.log('Logged out from all devices')
+} catch (error) {
+  console.error('Logout all failed:', error.message)
+}
+```
+
+---
+
+##### Token Verification Methods
+
+###### `verifyToken(token: string, audience?: string): Promise<JWTPayload>`
+
+Verify a JWT token's signature and claims using JWKS.
+
+**Parameters:**
+- `token: string` - JWT token to verify
+- `audience?: string` - Optional audience to verify (defaults to client's audience)
+
+**Returns:**
+```typescript
+interface JWTPayload {
+  sub: string          // Subject (user ID)
+  email: string        // User email
+  role: string         // User role
+  tenantId: string     // Tenant ID
+  scope?: string       // Token scope
+  aud: string          // Audience
+  iss: string          // Issuer
+  exp: number          // Expiration timestamp
+  iat: number          // Issued at timestamp
+}
+```
+
+**Example:**
+```typescript
+try {
+  const payload = await client.verifyToken(accessToken)
+  console.log('Token is valid for user:', payload.email)
+  console.log('Token expires at:', new Date(payload.exp * 1000))
+} catch (error) {
+  console.error('Token verification failed:', error.message)
+}
+```
+
+---
+
+###### `decodeToken(token: string): JWTPayload`
+
+Decode a JWT token without verifying its signature (use with caution).
+
+**Parameters:**
+- `token: string` - JWT token to decode
+
+**Returns:** `JWTPayload` (unverified)
+
+**Example:**
+```typescript
+try {
+  const payload = client.decodeToken(accessToken)
+  console.log('Token claims:', payload)
+  // Note: This does NOT verify the token signature
+} catch (error) {
+  console.error('Token decode failed:', error.message)
+}
+```
+
+---
+
+###### `getUserFromToken(token: string): User`
+
+Extract user information from a JWT token without verification.
+
+**Parameters:**
+- `token: string` - JWT token
+
+**Returns:**
+```typescript
+interface User {
+  id: string
+  email: string
+  role: string
+  tenantId: string
+}
+```
+
+**Example:**
+```typescript
+try {
+  const user = client.getUserFromToken(accessToken)
+  console.log('Current user:', user)
+} catch (error) {
+  console.error('Failed to extract user:', error.message)
+}
+```
+
+---
+
+###### `isTokenExpired(token: string): boolean`
+
+Check if a JWT token is expired based on its `exp` claim.
+
+**Parameters:**
+- `token: string` - JWT token to check
+
+**Returns:** `boolean` - `true` if expired, `false` if valid
+
+**Example:**
+```typescript
+const accessToken = storage.getAccessToken()
+
+if (client.isTokenExpired(accessToken)) {
+  console.log('Token expired, refreshing...')
+  await client.refresh({ refreshToken: storage.getRefreshToken() })
+} else {
+  console.log('Token is still valid')
+}
+```
+
+---
+
+###### `getTimeUntilExpiry(token: string): number`
+
+Get the number of seconds until a token expires.
+
+**Parameters:**
+- `token: string` - JWT token
+
+**Returns:** `number` - Seconds until expiration (negative if already expired)
+
+**Example:**
+```typescript
+const accessToken = storage.getAccessToken()
+const secondsLeft = client.getTimeUntilExpiry(accessToken)
+
+if (secondsLeft > 0) {
+  console.log(`Token expires in ${secondsLeft} seconds`)
+  
+  if (secondsLeft < 300) { // Less than 5 minutes
+    console.log('Token expiring soon, consider refreshing')
+  }
+} else {
+  console.log('Token has already expired')
+}
+```
 
 ### Storage Options
 
