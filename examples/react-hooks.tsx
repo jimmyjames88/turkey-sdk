@@ -5,7 +5,7 @@ import { TurKeyClient, AuthProvider, useTurkey } from '@jimmyjames88/turkey-sdk'
 // Initialize client
 const client = new TurKeyClient({
   baseUrl: 'http://localhost:3000',
-  audience: 'my-react-app'
+  audience: 'my-react-app',
 })
 
 // Login component
@@ -97,11 +97,7 @@ function App() {
 // Root component with provider
 export default function Root() {
   return (
-    <AuthProvider 
-      client={client} 
-      tenantId="my-company"
-      autoRefresh={true}
-    >
+    <AuthProvider client={client} tenantId="my-company" autoRefresh={true}>
       <App />
     </AuthProvider>
   )

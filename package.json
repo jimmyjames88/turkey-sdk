@@ -1,6 +1,6 @@
 {
   "name": "@jimmyjames88/turkey-sdk",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "TypeScript SDK for TurKey JWT authentication service",
   "type": "module",
   "main": "dist/index.js",
@@ -23,10 +23,13 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "lint": "eslint src --ext .ts,.tsx",
-    "lint:fix": "eslint src --ext .ts,.tsx --fix",
+    "lint": "eslint . --ext .ts,.tsx,.js,.jsx",
+    "lint:fix": "eslint . --ext .ts,.tsx,.js,.jsx --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "type-check": "tsc --noEmit",
     "dev": "rollup -c -w",
+    "prepare": "husky install",
     "prepublishOnly": "npm run build",
     "publish:github": "npm publish"
   },
@@ -48,11 +51,15 @@
     "@types/js-cookie": "^3.0.6",
     "@types/node": "^20.10.0",
     "@types/react": "^18.2.45",
-    "@typescript-eslint/eslint-plugin": "^6.12.0",
-    "@typescript-eslint/parser": "^6.12.0",
+    "@typescript-eslint/eslint-plugin": "^8.45.0",
+    "@typescript-eslint/parser": "^8.45.0",
     "eslint": "^8.54.0",
+    "eslint-config-prettier": "^9.0.0",
+    "husky": "^8.0.3",
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^30.2.0",
+    "lint-staged": "^15.0.2",
+    "prettier": "^3.0.3",
     "rollup": "^4.6.1",
     "ts-jest": "^29.1.1",
     "typescript": "^5.3.2"
@@ -69,5 +76,14 @@
     "react": {
       "optional": true
     }
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx}": [
+      "eslint --fix --max-warnings=100",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
   }
 }

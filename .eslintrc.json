@@ -1,0 +1,51 @@
+{
+  "parser": "@typescript-eslint/parser",
+  "parserOptions": {
+    "ecmaVersion": 2020,
+    "sourceType": "module",
+    "ecmaFeatures": {
+      "jsx": true
+    }
+  },
+  "extends": ["eslint:recommended"],
+  "plugins": ["@typescript-eslint"],
+  "rules": {
+    "@typescript-eslint/no-unused-vars": "error",
+    "@typescript-eslint/no-explicit-any": "warn",
+    "@typescript-eslint/explicit-function-return-type": "off",
+    "@typescript-eslint/explicit-module-boundary-types": "off",
+    "semi": ["error", "never"],
+    "quotes": ["error", "single", { "avoidEscape": true }]
+  },
+  "env": {
+    "browser": true,
+    "node": true,
+    "es6": true
+  },
+  "globals": {
+    "RequestInit": "readonly"
+  },
+  "overrides": [
+    {
+      "files": [
+        "examples/**/*",
+        "**/*.test.ts",
+        "**/*.test.tsx",
+        "src/__tests__/**/*"
+      ],
+      "env": {
+        "jest": true
+      },
+      "rules": {
+        "no-console": "off"
+      }
+    },
+    {
+      "files": ["src/**/*"],
+      "excludedFiles": ["**/*.test.ts", "**/*.test.tsx", "src/__tests__/**/*"],
+      "rules": {
+        "no-console": "warn"
+      }
+    }
+  ]
+}

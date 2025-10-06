@@ -10,7 +10,7 @@ export default [
       file: 'dist/index.esm.js',
       format: 'es',
       sourcemap: true,
-      exports: 'named'
+      exports: 'named',
     },
     plugins: [
       resolve(),
@@ -18,10 +18,10 @@ export default [
       typescript({
         tsconfig: './tsconfig.json',
         declaration: true,
-        declarationDir: './dist'
-      })
+        declarationDir: './dist',
+      }),
     ],
-    external: ['jose', 'js-cookie', 'react', 'react/jsx-runtime']
+    external: ['jose', 'js-cookie', 'react', 'react/jsx-runtime'],
   },
   // CommonJS build
   {
@@ -30,7 +30,7 @@ export default [
       file: 'dist/index.js',
       format: 'cjs',
       sourcemap: true,
-      exports: 'named'
+      exports: 'named',
     },
     plugins: [
       resolve(),
@@ -38,9 +38,9 @@ export default [
       typescript({
         tsconfig: './tsconfig.json',
         declaration: false,
-        declarationMap: false
-      })
+        declarationMap: false,
+      }),
     ],
-    external: ['jose', 'js-cookie', 'react', 'react/jsx-runtime']
-  }
+    external: ['jose', 'js-cookie', 'react', 'react/jsx-runtime'],
+  },
 ]

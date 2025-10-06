@@ -5,13 +5,13 @@ async function example() {
   // Initialize the client
   const client = new TurKeyClient({
     baseUrl: 'http://localhost:3000', // Your TurKey server
-    audience: 'my-app'
+    audience: 'my-app',
   })
 
   // Initialize storage
   const storage = new CookieTokenStorage({
     secure: false, // Set to true in production
-    sameSite: 'lax'
+    sameSite: 'lax',
   })
 
   try {
@@ -21,20 +21,23 @@ async function example() {
       email: 'john@example.com',
       password: 'SecurePass123!',
       tenantId: 'my-company',
-      role: 'user'
+      role: 'user',
     })
 
     console.log('Registration successful:', registerResponse.user)
 
     // Store tokens
-    storage.setTokens(registerResponse.accessToken, registerResponse.refreshToken)
+    storage.setTokens(
+      registerResponse.accessToken,
+      registerResponse.refreshToken
+    )
 
     // Login
     console.log('Logging in...')
     const loginResponse = await client.login({
-      email: 'john@example.com', 
+      email: 'john@example.com',
       password: 'SecurePass123!',
-      tenantId: 'my-company'
+      tenantId: 'my-company',
     })
 
     console.log('Login successful:', loginResponse.user)
@@ -54,7 +57,7 @@ async function example() {
     // Refresh tokens
     console.log('Refreshing tokens...')
     const refreshResponse = await client.refresh({
-      refreshToken: loginResponse.refreshToken
+      refreshToken: loginResponse.refreshToken,
     })
 
     console.log('Tokens refreshed successfully')
@@ -68,7 +71,6 @@ async function example() {
     storage.clearTokens()
 
     console.log('Logout successful')
-
   } catch (error) {
     console.error('Error:', error)
   }

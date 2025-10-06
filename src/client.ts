@@ -1,11 +1,11 @@
-import type { 
-  TurKeyConfig, 
-  LoginRequest, 
-  RegisterRequest, 
+import type {
+  TurKeyConfig,
+  LoginRequest,
+  RegisterRequest,
   RefreshRequest,
   AuthResponse,
   TokenPair,
-  TurKeyError
+  TurKeyError,
 } from './types'
 import { TurKeyAuthError } from './types'
 import { TokenManager } from './token-manager'
@@ -17,7 +17,7 @@ export class TurKeyClient {
   constructor(config: TurKeyConfig) {
     this.config = {
       timeout: 10000,
-      ...config
+      ...config,
     }
     this.tokenManager = new TokenManager(this.config)
   }
@@ -26,11 +26,11 @@ export class TurKeyClient {
    * Make authenticated request to TurKey API
    */
   private async request<T>(
-    endpoint: string, 
+    endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
-    const url = new URL(endpoint, this.config.baseUrl);
-    
+    const url = new URL(endpoint, this.config.baseUrl)
+
     const response = await fetch(url.toString(), {
       ...options,
       headers: {
@@ -38,12 +38,12 @@ export class TurKeyClient {
         ...options.headers,
       },
       signal: AbortSignal.timeout(this.config.timeout!),
-    });
+    })
 
-    const data = await response.json();
+    const data = await response.json()
 
     if (!response.ok) {
-      const error = data as TurKeyError;
+      const error = data as TurKeyError
       throw new TurKeyAuthError(
         error.message,
         error.error,
@@ -61,13 +61,16 @@ export class TurKeyClient {
   async login(params: LoginRequest): Promise<AuthResponse> {
     const requestData = {
       ...params,
-      audience: params.audience || this.config.audience
+      audience: params.audience || this.config.audience,
     }
 
-    const response = await this.request<{ data: AuthResponse }>('/v1/auth/login', {
-      method: 'POST',
-      body: JSON.stringify(requestData)
-    })
+    const response = await this.request<{ data: AuthResponse }>(
+      '/v1/auth/login',
+      {
+        method: 'POST',
+        body: JSON.stringify(requestData),
+      }
+    )
 
     return response.data
   }
@@ -79,13 +82,16 @@ export class TurKeyClient {
     const requestData = {
       role: 'user' as const,
       ...params,
-      audience: params.audience || this.config.audience
+      audience: params.audience || this.config.audience,
     }
 
-    const response = await this.request<{ data: AuthResponse }>('/v1/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(requestData)
-    })
+    const response = await this.request<{ data: AuthResponse }>(
+      '/v1/auth/register',
+      {
+        method: 'POST',
+        body: JSON.stringify(requestData),
+      }
+    )
 
     return response.data
   }
@@ -96,13 +102,16 @@ export class TurKeyClient {
   async refresh(params: RefreshRequest): Promise<TokenPair> {
     const requestData = {
       ...params,
-      audience: params.audience || this.config.audience
+      audience: params.audience || this.config.audience,
     }
 
-    const response = await this.request<{ data: TokenPair }>('/v1/auth/refresh', {
-      method: 'POST',
-      body: JSON.stringify(requestData)
-    })
+    const response = await this.request<{ data: TokenPair }>(
+      '/v1/auth/refresh',
+      {
+        method: 'POST',
+        body: JSON.stringify(requestData),
+      }
+    )
 
     return response.data
   }
@@ -114,8 +123,8 @@ export class TurKeyClient {
     await this.request('/v1/auth/logout', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${accessToken}`
-      }
+        Authorization: `Bearer ${accessToken}`,
+      },
     })
   }
 
@@ -126,8 +135,8 @@ export class TurKeyClient {
     await this.request('/v1/auth/logout-all', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${accessToken}`
-      }
+        Authorization: `Bearer ${accessToken}`,
+      },
     })
   }
 
@@ -138,8 +147,8 @@ export class TurKeyClient {
     const response = await this.request('/v1/users/me', {
       method: 'GET',
       headers: {
-        Authorization: `Bearer ${accessToken}`
-      }
+        Authorization: `Bearer ${accessToken}`,
+      },
     })
 
     return response

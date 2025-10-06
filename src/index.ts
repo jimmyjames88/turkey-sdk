@@ -7,7 +7,7 @@ export {
   CookieTokenStorage,
   LocalStorageTokenStorage,
   MemoryTokenStorage,
-  type TokenStorage
+  type TokenStorage,
 } from './storage'
 
 // React hooks (optional peer dependency)
@@ -15,7 +15,7 @@ export {
   AuthProvider,
   useTurkey,
   useAccessToken,
-  useAuthenticatedFetch
+  useAuthenticatedFetch,
 } from './react'
 
 // Types
@@ -28,7 +28,7 @@ export type {
   TokenPair,
   User,
   JWTPayload,
-  TurKeyError
+  TurKeyError,
 } from './types'
 
 export { TurKeyAuthError } from './types'

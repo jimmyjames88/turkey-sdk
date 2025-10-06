@@ -74,7 +74,9 @@ function LoginComponent() {
   }
 
   return (
-    <button onClick={() => login({ email: 'user@example.com', password: 'pass' })}>
+    <button
+      onClick={() => login({ email: 'user@example.com', password: 'pass' })}
+    >
       Login
     </button>
   )
@@ -102,15 +104,17 @@ new TurKeyClient(config: TurKeyConfig)
 Authenticate a user with email/password credentials.
 
 **Parameters:**
+
 ```typescript
 interface LoginParams {
-  email: string        // User's email address
-  password: string     // User's password
-  tenantId: string     // Tenant identifier
+  email: string // User's email address
+  password: string // User's password
+  tenantId: string // Tenant identifier
 }
 ```
 
 **Returns:**
+
 ```typescript
 interface AuthResponse {
   user: {
@@ -119,20 +123,21 @@ interface AuthResponse {
     role: string
     tenantId: string
   }
-  accessToken: string    // JWT access token
-  refreshToken: string   // JWT refresh token
+  accessToken: string // JWT access token
+  refreshToken: string // JWT refresh token
 }
 ```
 
 **Example:**
+
 ```typescript
 try {
   const response = await client.login({
     email: 'user@example.com',
     password: 'securepassword',
-    tenantId: 'my-tenant'
+    tenantId: 'my-tenant',
   })
-  
+
   console.log('Logged in user:', response.user)
   // Store tokens securely
   storage.setTokens(response.accessToken, response.refreshToken)
@@ -148,19 +153,21 @@ try {
 Register a new user account.
 
 **Parameters:**
+
 ```typescript
 interface RegisterParams {
-  email: string        // User's email address
-  password: string     // User's password
-  tenantId: string     // Tenant identifier
-  role?: string        // User role (default: 'user')
-  metadata?: object    // Additional user metadata
+  email: string // User's email address
+  password: string // User's password
+  tenantId: string // Tenant identifier
+  role?: string // User role (default: 'user')
+  metadata?: object // Additional user metadata
 }
 ```
 
 **Returns:** Same as `login()` - `AuthResponse`
 
 **Example:**
+
 ```typescript
 try {
   const response = await client.register({
@@ -168,9 +175,9 @@ try {
     password: 'securepassword',
     tenantId: 'my-tenant',
     role: 'user',
-    metadata: { firstName: 'John', lastName: 'Doe' }
+    metadata: { firstName: 'John', lastName: 'Doe' },
   })
-  
+
   console.log('User registered:', response.user)
 } catch (error) {
   console.error('Registration failed:', error.message)
@@ -184,21 +191,23 @@ try {
 Refresh an expired access token using a refresh token.
 
 **Parameters:**
+
 ```typescript
 interface RefreshParams {
-  refreshToken: string  // Valid refresh token
+  refreshToken: string // Valid refresh token
 }
 ```
 
 **Returns:** `AuthResponse` with new tokens
 
 **Example:**
+
 ```typescript
 try {
   const response = await client.refresh({
-    refreshToken: storage.getRefreshToken()
+    refreshToken: storage.getRefreshToken(),
   })
-  
+
   // Update stored tokens
   storage.setTokens(response.accessToken, response.refreshToken)
 } catch (error) {
@@ -215,9 +224,11 @@ try {
 Logout the current session, invalidating the access token.
 
 **Parameters:**
+
 - `accessToken: string` - Current access token to invalidate
 
 **Example:**
+
 ```typescript
 try {
   await client.logout(storage.getAccessToken())
@@ -235,9 +246,11 @@ try {
 Logout all sessions for the current user, invalidating all tokens.
 
 **Parameters:**
+
 - `accessToken: string` - Current access token
 
 **Example:**
+
 ```typescript
 try {
   await client.logoutAll(storage.getAccessToken())
@@ -257,25 +270,28 @@ try {
 Verify a JWT token's signature and claims using JWKS.
 
 **Parameters:**
+
 - `token: string` - JWT token to verify
 - `audience?: string` - Optional audience to verify (defaults to client's audience)
 
 **Returns:**
+
 ```typescript
 interface JWTPayload {
-  sub: string          // Subject (user ID)
-  email: string        // User email
-  role: string         // User role
-  tenantId: string     // Tenant ID
-  scope?: string       // Token scope
-  aud: string          // Audience
-  iss: string          // Issuer
-  exp: number          // Expiration timestamp
-  iat: number          // Issued at timestamp
+  sub: string // Subject (user ID)
+  email: string // User email
+  role: string // User role
+  tenantId: string // Tenant ID
+  scope?: string // Token scope
+  aud: string // Audience
+  iss: string // Issuer
+  exp: number // Expiration timestamp
+  iat: number // Issued at timestamp
 }
 ```
 
 **Example:**
+
 ```typescript
 try {
   const payload = await client.verifyToken(accessToken)
@@ -293,11 +309,13 @@ try {
 Decode a JWT token without verifying its signature (use with caution).
 
 **Parameters:**
+
 - `token: string` - JWT token to decode
 
 **Returns:** `JWTPayload` (unverified)
 
 **Example:**
+
 ```typescript
 try {
   const payload = client.decodeToken(accessToken)
@@ -315,9 +333,11 @@ try {
 Extract user information from a JWT token without verification.
 
 **Parameters:**
+
 - `token: string` - JWT token
 
 **Returns:**
+
 ```typescript
 interface User {
   id: string
@@ -328,6 +348,7 @@ interface User {
 ```
 
 **Example:**
+
 ```typescript
 try {
   const user = client.getUserFromToken(accessToken)
@@ -344,11 +365,13 @@ try {
 Check if a JWT token is expired based on its `exp` claim.
 
 **Parameters:**
+
 - `token: string` - JWT token to check
 
 **Returns:** `boolean` - `true` if expired, `false` if valid
 
 **Example:**
+
 ```typescript
 const accessToken = storage.getAccessToken()
 
@@ -367,19 +390,22 @@ if (client.isTokenExpired(accessToken)) {
 Get the number of seconds until a token expires.
 
 **Parameters:**
+
 - `token: string` - JWT token
 
 **Returns:** `number` - Seconds until expiration (negative if already expired)
 
 **Example:**
+
 ```typescript
 const accessToken = storage.getAccessToken()
 const secondsLeft = client.getTimeUntilExpiry(accessToken)
 
 if (secondsLeft > 0) {
   console.log(`Token expires in ${secondsLeft} seconds`)
-  
-  if (secondsLeft < 300) { // Less than 5 minutes
+
+  if (secondsLeft < 300) {
+    // Less than 5 minutes
     console.log('Token expiring soon, consider refreshing')
   }
 } else {
@@ -419,14 +445,14 @@ Primary hook for authentication state and actions.
 
 ```typescript
 const {
-  user,           // Current user info
+  user, // Current user info
   isAuthenticated, // Authentication status
-  isLoading,      // Loading state
-  login,          // Login function
-  register,       // Register function
-  logout,         // Logout function
-  refreshTokens,  // Manual refresh
-  client,         // TurKey client instance
+  isLoading, // Loading state
+  login, // Login function
+  register, // Register function
+  logout, // Logout function
+  refreshTokens, // Manual refresh
+  client, // TurKey client instance
 } = useTurkey()
 ```
 
@@ -459,7 +485,7 @@ const blogClient = new TurKeyClient({
 })
 
 const shopClient = new TurKeyClient({
-  baseUrl: 'https://auth.yourapp.com', 
+  baseUrl: 'https://auth.yourapp.com',
   audience: 'shop-app',
 })
 
@@ -489,10 +515,10 @@ try {
 
 ```typescript
 interface TurKeyConfig {
-  baseUrl: string        // TurKey service URL
-  audience?: string      // Default audience for tokens
-  tenantId?: string      // Default tenant ID
-  timeout?: number       // Request timeout (default: 10000ms)
+  baseUrl: string // TurKey service URL
+  audience?: string // Default audience for tokens
+  tenantId?: string // Default tenant ID
+  timeout?: number // Request timeout (default: 10000ms)
 }
 ```
 

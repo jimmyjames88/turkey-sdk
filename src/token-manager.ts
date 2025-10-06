@@ -1,4 +1,4 @@
-import { jwtVerify, createRemoteJWKSet, type JWTPayload as JoseJWTPayload } from 'jose'
+import { jwtVerify, createRemoteJWKSet } from 'jose'
 import type { JWTPayload, TurKeyConfig } from './types'
 
 export class TokenManager {
@@ -23,15 +23,18 @@ export class TokenManager {
   /**
    * Verify and decode a JWT token
    */
-  async verifyToken(token: string, expectedAudience?: string): Promise<JWTPayload> {
+  async verifyToken(
+    token: string,
+    expectedAudience?: string
+  ): Promise<JWTPayload> {
     try {
       const jwks = this.initJWKS()
       const audience = expectedAudience || this.config.audience
-      
+
       const { payload } = await jwtVerify(token, jwks, {
         issuer: this.config.baseUrl,
         audience: audience,
-        algorithms: ['ES256']
+        algorithms: ['ES256'],
       })
 
       return payload as unknown as JWTPayload
@@ -66,7 +69,7 @@ export class TokenManager {
       const payload = JSON.parse(
         Buffer.from(parts[1], 'base64url').toString('utf-8')
       )
-      
+
       return payload as JWTPayload
     } catch (error) {
       throw new Error(`Token decode failed: ${error}`)
@@ -100,7 +103,7 @@ export class TokenManager {
       id: payload.sub,
       email: payload.email,
       role: payload.role,
-      tenantId: payload.tenantId
+      tenantId: payload.tenantId,
     }
   }
 }

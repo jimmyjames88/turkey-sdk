@@ -36,17 +36,17 @@ export class CookieTokenStorage implements TokenStorage {
       secure: this.options.secure ?? true,
       sameSite: this.options.sameSite ?? 'strict',
       domain: this.options.domain,
-      path: this.options.path ?? '/'
+      path: this.options.path ?? '/',
     }
 
     Cookies.set(this.accessTokenKey, accessToken, {
       ...cookieOptions,
-      expires: 1 // 1 day for access token
+      expires: 1, // 1 day for access token
     })
 
     Cookies.set(this.refreshTokenKey, refreshToken, {
       ...cookieOptions,
-      expires: 30 // 30 days for refresh token
+      expires: 30, // 30 days for refresh token
     })
   }
 

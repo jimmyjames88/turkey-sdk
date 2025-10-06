@@ -88,7 +88,12 @@ export class TurKeyAuthError extends Error {
     code: string
   }>
 
-  constructor(message: string, code: string, statusCode: number, details?: any[]) {
+  constructor(
+    message: string,
+    code: string,
+    statusCode: number,
+    details?: any[]
+  ) {
     super(message)
     this.name = 'TurKeyAuthError'
     this.code = code
