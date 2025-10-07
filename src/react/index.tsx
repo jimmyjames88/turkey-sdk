@@ -49,19 +49,32 @@ export function AuthProvider({
   // Initialize auth state
   useEffect(() => {
     const initAuth = async () => {
+      console.log('🔍 AuthProvider: Initializing auth state...')
       const accessToken = storage.getAccessToken()
+      console.log(
+        '🔍 AuthProvider: Retrieved access token:',
+        accessToken ? 'Token found' : 'No token'
+      )
 
       if (accessToken && !client.isTokenExpired(accessToken)) {
         try {
+          console.log(
+            '🔍 AuthProvider: Token is valid, extracting user info...'
+          )
           const userInfo = client.getUserFromToken(accessToken)
+          console.log('🔍 AuthProvider: User info extracted:', userInfo)
           setUser(userInfo)
         } catch (error) {
-          console.warn('Failed to parse stored token:', error)
+          console.warn('🔍 AuthProvider: Failed to parse stored token:', error)
           storage.clearTokens()
         }
+      } else if (accessToken) {
+        console.log('🔍 AuthProvider: Token is expired, clearing storage')
+        storage.clearTokens()
       }
 
       setIsLoading(false)
+      console.log('🔍 AuthProvider: Auth initialization complete')
     }
 
     initAuth()
@@ -91,13 +104,19 @@ export function AuthProvider({
 
   const login = useCallback(
     async (params: Omit<LoginRequest, 'tenantId'>): Promise<AuthResponse> => {
+      console.log('🔍 Login: Starting login process...')
       setIsLoading(true)
       try {
         const response = await client.login({ ...params, tenantId })
+        console.log('🔍 Login: API response received:', response)
 
+        console.log('🔍 Login: Storing tokens...')
         storage.setTokens(response.accessToken, response.refreshToken)
+
+        console.log('🔍 Login: Setting user state...')
         setUser(response.user)
 
+        console.log('🔍 Login: Login complete, user:', response.user)
         return response
       } finally {
         setIsLoading(false)

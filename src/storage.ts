@@ -24,14 +24,29 @@ export class CookieTokenStorage implements TokenStorage {
   ) {}
 
   getAccessToken(): string | null {
-    return Cookies.get(this.accessTokenKey) || null
+    const token = Cookies.get(this.accessTokenKey) || null
+    console.log(
+      '🔍 CookieStorage: getAccessToken called, result:',
+      token ? 'Token found' : 'No token'
+    )
+    return token
   }
 
   getRefreshToken(): string | null {
-    return Cookies.get(this.refreshTokenKey) || null
+    const token = Cookies.get(this.refreshTokenKey) || null
+    console.log(
+      '🔍 CookieStorage: getRefreshToken called, result:',
+      token ? 'Token found' : 'No token'
+    )
+    return token
   }
 
   setTokens(accessToken: string, refreshToken: string): void {
+    console.log('🔍 CookieStorage: setTokens called with tokens:', {
+      accessToken: accessToken.substring(0, 20) + '...',
+      refreshToken: refreshToken.substring(0, 20) + '...',
+    })
+
     const cookieOptions = {
       secure: this.options.secure ?? true,
       sameSite: this.options.sameSite ?? 'strict',
@@ -39,15 +54,31 @@ export class CookieTokenStorage implements TokenStorage {
       path: this.options.path ?? '/',
     }
 
+    console.log('🔍 CookieStorage: Cookie options:', cookieOptions)
+
     Cookies.set(this.accessTokenKey, accessToken, {
       ...cookieOptions,
       expires: 1, // 1 day for access token
     })
+    console.log('🔍 CookieStorage: Access token cookie set')
 
     Cookies.set(this.refreshTokenKey, refreshToken, {
       ...cookieOptions,
       expires: 30, // 30 days for refresh token
     })
+    console.log('🔍 CookieStorage: Refresh token cookie set')
+
+    // Verify cookies were set
+    setTimeout(() => {
+      console.log(
+        '🔍 CookieStorage: Verification - Access token:',
+        Cookies.get(this.accessTokenKey) ? 'Found' : 'Not found'
+      )
+      console.log(
+        '🔍 CookieStorage: Verification - Refresh token:',
+        Cookies.get(this.refreshTokenKey) ? 'Found' : 'Not found'
+      )
+    }, 100)
   }
 
   clearTokens(): void {
