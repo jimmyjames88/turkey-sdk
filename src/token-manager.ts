@@ -66,8 +66,13 @@ export class TokenManager {
         throw new Error('Invalid token format')
       }
 
+      // Convert base64url to base64 for better compatibility
+      const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/')
+      const padding = '='.repeat((4 - (base64.length % 4)) % 4)
+      const base64Padded = base64 + padding
+
       const payload = JSON.parse(
-        Buffer.from(parts[1], 'base64url').toString('utf-8')
+        Buffer.from(base64Padded, 'base64').toString('utf-8')
       )
 
       return payload as JWTPayload
