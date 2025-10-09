@@ -110,6 +110,7 @@ interface LoginParams {
   email: string // User's email address
   password: string // User's password
   tenantId: string // Tenant identifier
+  audience?: string // Optional audience for app-specific tokens
 }
 ```
 
@@ -125,6 +126,8 @@ interface AuthResponse {
   }
   accessToken: string // JWT access token
   refreshToken: string // JWT refresh token
+  expiresIn: number // Token expiration time in seconds
+  tokenType: string // Token type (usually "Bearer")
 }
 ```
 
@@ -159,8 +162,8 @@ interface RegisterParams {
   email: string // User's email address
   password: string // User's password
   tenantId: string // Tenant identifier
-  role?: string // User role (default: 'user')
-  metadata?: object // Additional user metadata
+  role?: 'user' | 'admin' // User role (default: 'user')
+  audience?: string // Optional audience for app-specific tokens
 }
 ```
 
@@ -175,7 +178,7 @@ try {
     password: 'securepassword',
     tenantId: 'my-tenant',
     role: 'user',
-    metadata: { firstName: 'John', lastName: 'Doe' },
+    audience: 'my-app', // Optional: for app-specific tokens
   })
 
   console.log('User registered:', response.user)
@@ -195,6 +198,7 @@ Refresh an expired access token using a refresh token.
 ```typescript
 interface RefreshParams {
   refreshToken: string // Valid refresh token
+  audience?: string // Optional audience for app-specific tokens
 }
 ```
 
