@@ -4,6 +4,7 @@ import {
   useCallback,
   useContext,
   createContext,
+  useRef,
   ReactNode,
 } from 'react'
 import { TurKeyClient } from '../client'
@@ -38,54 +39,59 @@ function useAutoRefresh(
   isEnabled: boolean,
   onRefreshError: () => void
 ) {
-  useEffect(() => {
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const clearTimer = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current)
+      timerRef.current = null
+    }
+  }, [])
+
+  const setupRefresh = useCallback(() => {
+    // Clear any existing timer first
+    clearTimer()
+
     if (!isEnabled) return
 
-    const setupRefresh = (): ReturnType<typeof setTimeout> | null => {
-      const accessToken = storage.getAccessToken()
-      if (!accessToken || client.isTokenExpired(accessToken)) {
-        return null
-      }
+    const accessToken = storage.getAccessToken()
+    if (!accessToken || client.isTokenExpired(accessToken)) {
+      return
+    }
 
-      const timeUntilExpiry = client.getTimeUntilExpiry(accessToken)
-      const refreshTime = Math.max(0, (timeUntilExpiry - 300) * 1000) // Refresh 5 minutes before expiry
+    const timeUntilExpiry = client.getTimeUntilExpiry(accessToken)
+    const refreshTime = Math.max(0, (timeUntilExpiry - 300) * 1000) // Refresh 5 minutes before expiry
 
-      console.log(
-        `🔍 useAutoRefresh: Setting up refresh in ${refreshTime}ms (${Math.floor(refreshTime / 1000)}s)`
-      )
+    console.log(
+      `🔍 useAutoRefresh: Setting up refresh in ${refreshTime}ms (${Math.floor(refreshTime / 1000)}s)`
+    )
 
-      return setTimeout(async () => {
-        try {
-          console.log('🔍 useAutoRefresh: Auto-refreshing tokens...')
-          const refreshToken = storage.getRefreshToken()
+    timerRef.current = setTimeout(async () => {
+      try {
+        console.log('🔍 useAutoRefresh: Auto-refreshing tokens...')
+        const refreshToken = storage.getRefreshToken()
 
-          if (!refreshToken) {
-            throw new Error('No refresh token available')
-          }
-
-          const response = await client.refresh({ refreshToken })
-          storage.setTokens(response.accessToken, response.refreshToken)
-
-          // Recursively set up the next refresh
-          const nextTimer = setupRefresh()
-          if (!nextTimer) {
-            console.warn('🔍 useAutoRefresh: Could not set up next refresh')
-          }
-        } catch (error) {
-          console.warn('🔍 useAutoRefresh: Auto-refresh failed:', error)
-          onRefreshError()
+        if (!refreshToken) {
+          throw new Error('No refresh token available')
         }
-      }, refreshTime)
-    }
 
-    const timer = setupRefresh()
+        const response = await client.refresh({ refreshToken })
+        storage.setTokens(response.accessToken, response.refreshToken)
 
-    return () => {
-      if (timer) {
-        clearTimeout(timer)
+        // Set up the next refresh after successful refresh
+        setupRefresh()
+      } catch (error) {
+        console.warn('🔍 useAutoRefresh: Auto-refresh failed:', error)
+        onRefreshError()
       }
-    }
-  }, [client, storage, isEnabled, onRefreshError])
+    }, refreshTime)
+  }, [client, storage, isEnabled, onRefreshError, clearTimer])
+
+  useEffect(() => {
+    setupRefresh()
+
+    return clearTimer
+  }, [setupRefresh, clearTimer])
 }
 
 interface AuthProviderProps {
