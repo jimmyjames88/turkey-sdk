@@ -28,6 +28,66 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
+/**
+ * Custom hook for handling automatic token refresh
+ */
+/* eslint-disable no-console, no-undef */
+function useAutoRefresh(
+  client: TurKeyClient,
+  storage: TokenStorage,
+  isEnabled: boolean,
+  onRefreshError: () => void
+) {
+  useEffect(() => {
+    if (!isEnabled) return
+
+    const setupRefresh = (): ReturnType<typeof setTimeout> | null => {
+      const accessToken = storage.getAccessToken()
+      if (!accessToken || client.isTokenExpired(accessToken)) {
+        return null
+      }
+
+      const timeUntilExpiry = client.getTimeUntilExpiry(accessToken)
+      const refreshTime = Math.max(0, (timeUntilExpiry - 300) * 1000) // Refresh 5 minutes before expiry
+
+      console.log(
+        `🔍 useAutoRefresh: Setting up refresh in ${refreshTime}ms (${Math.floor(refreshTime / 1000)}s)`
+      )
+
+      return setTimeout(async () => {
+        try {
+          console.log('🔍 useAutoRefresh: Auto-refreshing tokens...')
+          const refreshToken = storage.getRefreshToken()
+
+          if (!refreshToken) {
+            throw new Error('No refresh token available')
+          }
+
+          const response = await client.refresh({ refreshToken })
+          storage.setTokens(response.accessToken, response.refreshToken)
+
+          // Recursively set up the next refresh
+          const nextTimer = setupRefresh()
+          if (!nextTimer) {
+            console.warn('🔍 useAutoRefresh: Could not set up next refresh')
+          }
+        } catch (error) {
+          console.warn('🔍 useAutoRefresh: Auto-refresh failed:', error)
+          onRefreshError()
+        }
+      }, refreshTime)
+    }
+
+    const timer = setupRefresh()
+
+    return () => {
+      if (timer) {
+        clearTimeout(timer)
+      }
+    }
+  }, [client, storage, isEnabled, onRefreshError])
+}
+
 interface AuthProviderProps {
   children: ReactNode
   client: TurKeyClient
@@ -45,6 +105,24 @@ export function AuthProvider({
 }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+
+  const logout = useCallback(async () => {
+    const accessToken = storage.getAccessToken()
+
+    if (accessToken) {
+      try {
+        await client.logout(accessToken)
+      } catch (error) {
+        console.warn('Logout request failed:', error)
+      }
+    }
+
+    storage.clearTokens()
+    setUser(null)
+  }, [client, storage])
+
+  // Use the custom auto-refresh hook
+  useAutoRefresh(client, storage, autoRefresh && !!user, logout)
 
   // Initialize auth state
   useEffect(() => {
@@ -79,28 +157,6 @@ export function AuthProvider({
 
     initAuth()
   }, [client, storage])
-
-  // Auto-refresh tokens
-  useEffect(() => {
-    if (!autoRefresh || !user) return
-
-    const accessToken = storage.getAccessToken()
-    if (!accessToken) return
-
-    const timeUntilExpiry = client.getTimeUntilExpiry(accessToken)
-    const refreshTime = Math.max(0, (timeUntilExpiry - 300) * 1000) // Refresh 5 minutes before expiry
-
-    const timer = setTimeout(async () => {
-      try {
-        await refreshTokens()
-      } catch (error) {
-        console.warn('Auto-refresh failed:', error)
-        await logout()
-      }
-    }, refreshTime)
-
-    return () => clearTimeout(timer)
-  }, [user, autoRefresh])
 
   const login = useCallback(
     async (params: Omit<LoginRequest, 'tenantId'>): Promise<AuthResponse> => {
@@ -144,21 +200,6 @@ export function AuthProvider({
     [client, tenantId, storage]
   )
 
-  const logout = useCallback(async () => {
-    const accessToken = storage.getAccessToken()
-
-    if (accessToken) {
-      try {
-        await client.logout(accessToken)
-      } catch (error) {
-        console.warn('Logout request failed:', error)
-      }
-    }
-
-    storage.clearTokens()
-    setUser(null)
-  }, [client, storage])
-
   const refreshTokens = useCallback(async () => {
     const refreshToken = storage.getRefreshToken()
 
@@ -169,9 +210,8 @@ export function AuthProvider({
     const response = await client.refresh({ refreshToken })
     storage.setTokens(response.accessToken, response.refreshToken)
 
-    // Update user info from new token
-    const userInfo = client.getUserFromToken(response.accessToken)
-    setUser(userInfo)
+    // Don't update user state during refresh to avoid re-triggering useEffects
+    // The user data doesn't change during token refresh
   }, [client, storage])
 
   const contextValue: AuthContextValue = {
@@ -236,3 +276,9 @@ export function useAuthenticatedFetch(
     [storage]
   )
 }
+
+// Export password validation hooks
+export {
+  usePasswordValidation,
+  usePasswordConfirmation,
+} from './password-hooks'

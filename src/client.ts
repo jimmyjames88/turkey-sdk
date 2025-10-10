@@ -6,9 +6,11 @@ import type {
   AuthResponse,
   TokenPair,
   TurKeyError,
+  User,
 } from './types'
 import { TurKeyAuthError } from './types'
 import { TokenManager } from './token-manager'
+import { validatePassword } from './password-validation'
 
 export class TurKeyClient {
   private config: TurKeyConfig
@@ -78,11 +80,26 @@ export class TurKeyClient {
   /**
    * Register new user and return authentication response
    */
-  async register(params: RegisterRequest): Promise<AuthResponse> {
+  async register(
+    params: RegisterRequest & { validatePassword?: boolean }
+  ): Promise<AuthResponse> {
+    // Optionally validate password before making API call
+    if (params.validatePassword !== false) {
+      const validation = validatePassword(params.password)
+      if (!validation.valid) {
+        throw new TurKeyAuthError(
+          `Password validation failed: ${validation.errors.join(', ')}`,
+          'weak_password',
+          400
+        )
+      }
+    }
+
     const requestData = {
       role: 'user' as const,
       ...params,
       audience: params.audience || this.config.audience,
+      validatePassword: undefined, // Remove from request data
     }
 
     const response = await this.request<{ data: AuthResponse }>(
@@ -143,15 +160,15 @@ export class TurKeyClient {
   /**
    * Get current user info from access token
    */
-  async getCurrentUser(accessToken: string): Promise<any> {
-    const response = await this.request('/v1/users/me', {
+  async getCurrentUser(accessToken: string): Promise<User> {
+    const response = await this.request<{ data: User }>('/v1/users/me', {
       method: 'GET',
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
     })
 
-    return response
+    return response.data
   }
 
   /**

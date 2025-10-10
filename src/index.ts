@@ -2,6 +2,16 @@
 export { TurKeyClient } from './client'
 export { TokenManager } from './token-manager'
 
+// Password validation utilities
+export {
+  validatePassword,
+  generateSecurePassword,
+  getPasswordRequirementsText,
+  DEFAULT_PASSWORD_REQUIREMENTS,
+  type PasswordValidationResult,
+  type PasswordRequirements,
+} from './password-validation'
+
 // Storage implementations
 export {
   CookieTokenStorage,
@@ -16,6 +26,8 @@ export {
   useTurkey,
   useAccessToken,
   useAuthenticatedFetch,
+  usePasswordValidation,
+  usePasswordConfirmation,
 } from './react'
 
 // Types
