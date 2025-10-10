@@ -40,26 +40,31 @@ function useAutoRefresh(
   onRefreshError: () => void
 ) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const paramsRef = useRef({ client, storage, onRefreshError })
 
-  const clearTimer = useCallback(() => {
+  // Update refs when props change, but don't trigger effects
+  useEffect(() => {
+    paramsRef.current = { client, storage, onRefreshError }
+  }, [client, storage, onRefreshError])
+
+  // Stable setup function that doesn't change
+  const setupRefresh = useCallback(() => {
+    // Clear any existing timer first
     if (timerRef.current) {
       clearTimeout(timerRef.current)
       timerRef.current = null
     }
-  }, [])
-
-  const setupRefresh = useCallback(() => {
-    // Clear any existing timer first
-    clearTimer()
 
     if (!isEnabled) return
 
-    const accessToken = storage.getAccessToken()
-    if (!accessToken || client.isTokenExpired(accessToken)) {
+    const { client: currentClient, storage: currentStorage } = paramsRef.current
+
+    const accessToken = currentStorage.getAccessToken()
+    if (!accessToken || currentClient.isTokenExpired(accessToken)) {
       return
     }
 
-    const timeUntilExpiry = client.getTimeUntilExpiry(accessToken)
+    const timeUntilExpiry = currentClient.getTimeUntilExpiry(accessToken)
     const refreshTime = Math.max(0, (timeUntilExpiry - 300) * 1000) // Refresh 5 minutes before expiry
 
     console.log(
@@ -69,29 +74,42 @@ function useAutoRefresh(
     timerRef.current = setTimeout(async () => {
       try {
         console.log('🔍 useAutoRefresh: Auto-refreshing tokens...')
-        const refreshToken = storage.getRefreshToken()
+        const { client: latestClient, storage: latestStorage } =
+          paramsRef.current
 
+        const refreshToken = latestStorage.getRefreshToken()
         if (!refreshToken) {
           throw new Error('No refresh token available')
         }
 
-        const response = await client.refresh({ refreshToken })
-        storage.setTokens(response.accessToken, response.refreshToken)
+        const response = await latestClient.refresh({ refreshToken })
+        latestStorage.setTokens(response.accessToken, response.refreshToken)
 
         // Set up the next refresh after successful refresh
         setupRefresh()
       } catch (error) {
         console.warn('🔍 useAutoRefresh: Auto-refresh failed:', error)
-        onRefreshError()
+        paramsRef.current.onRefreshError()
       }
     }, refreshTime)
-  }, [client, storage, isEnabled, onRefreshError, clearTimer])
+  }, [isEnabled]) // Only depend on isEnabled
 
+  // Only run when isEnabled changes
   useEffect(() => {
-    setupRefresh()
+    if (isEnabled) {
+      setupRefresh()
+    } else if (timerRef.current) {
+      clearTimeout(timerRef.current)
+      timerRef.current = null
+    }
 
-    return clearTimer
-  }, [setupRefresh, clearTimer])
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current)
+        timerRef.current = null
+      }
+    }
+  }, [isEnabled, setupRefresh])
 }
 
 interface AuthProviderProps {
