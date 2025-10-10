@@ -65,10 +65,10 @@ function useAutoRefresh(
     }
 
     const timeUntilExpiry = currentClient.getTimeUntilExpiry(accessToken)
-    const refreshTime = Math.max(0, (timeUntilExpiry - 300) * 1000) // Refresh 5 minutes before expiry
+    const refreshTime = Math.max(30000, (timeUntilExpiry - 300) * 1000) // Refresh 5 minutes before expiry, but at least 30 seconds
 
     console.log(
-      `🔍 useAutoRefresh: Setting up refresh in ${refreshTime}ms (${Math.floor(refreshTime / 1000)}s)`
+      `🔍 useAutoRefresh: Token expires in ${timeUntilExpiry}s, refresh buffer is 300s, calculated refresh time: ${refreshTime}ms (${Math.floor(refreshTime / 1000)}s)`
     )
 
     timerRef.current = setTimeout(async () => {
