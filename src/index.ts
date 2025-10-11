@@ -1,6 +1,7 @@
 // Core client
 export { TurKeyClient } from './client'
 export { TokenManager } from './token-manager'
+export { verifyJwt } from './server/verify'
 
 // Password validation utilities
 export {

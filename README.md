@@ -498,6 +498,35 @@ const blogToken = await blogClient.login({ ... })
 const shopToken = await shopClient.login({ ... })
 ```
 
+## Server-side verification and middleware examples
+
+The SDK includes a `verifyJwt` helper for server-side token verification using Turkey's JWKS. Use this from your server-side code or middleware to validate tokens and extract claims.
+
+Example usage in Express:
+
+```ts
+import express from 'express'
+import { verifyJwt } from '@jimmyjames88/turkey-sdk'
+
+const app = express()
+const config = { baseUrl: process.env.TURKEY_BASE_URL }
+
+app.use(async (req, res, next) => {
+  try {
+    const auth = req.headers.authorization || ''
+    if (!auth.startsWith('Bearer ')) return res.status(401).end()
+    const token = auth.slice(7)
+    const payload = await verifyJwt(token, config)
+    ;(req as any).user = payload
+    next()
+  } catch (err: any) {
+    res.status(401).json({ error: err.message })
+  }
+})
+```
+
+There are also example middleware files in `examples/middleware` for Express and Next.js.
+
 ## Error Handling
 
 ```typescript
