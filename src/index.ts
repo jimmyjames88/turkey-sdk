@@ -2,6 +2,7 @@
 export { TurKeyClient } from './client'
 export { TokenManager } from './token-manager'
 export { verifyJwt } from './server/verify'
+export { introspectToken, revokeToken } from './server/introspect'
 
 // Password validation utilities
 export {

@@ -527,6 +527,27 @@ app.use(async (req, res, next) => {
 
 There are also example middleware files in `examples/middleware` for Express and Next.js.
 
+### Token Introspection & Revocation
+
+TurKey exposes introspection and revocation operations for server-side session management. The SDK provides helpers and client methods:
+
+- `client.introspect(token)` — returns token metadata (active, exp, scope, subject, tenant)
+- `client.revoke(token)` — revokes access or refresh tokens
+
+Server helper usage:
+
+```ts
+import { introspectToken, revokeToken } from '@jimmyjames88/turkey-sdk'
+
+const config = { baseUrl: process.env.TURKEY_BASE_URL }
+
+// Introspect
+const meta = await introspectToken(someToken, config)
+
+// Revoke
+await revokeToken(someRefreshToken, config)
+```
+
 ## Error Handling
 
 ```typescript

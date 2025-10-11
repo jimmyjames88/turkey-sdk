@@ -158,6 +158,27 @@ export class TurKeyClient {
   }
 
   /**
+   * Introspect an access or refresh token server-side
+   */
+  async introspect(token: string) {
+    const response = await this.request<{ data: any }>('/v1/auth/introspect', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    })
+    return response.data
+  }
+
+  /**
+   * Revoke a token (access or refresh)
+   */
+  async revoke(token: string) {
+    await this.request('/v1/auth/revoke', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    })
+  }
+
+  /**
    * Get current user info from access token
    */
   async getCurrentUser(accessToken: string): Promise<User> {
