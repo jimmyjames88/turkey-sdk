@@ -21,9 +21,16 @@ export class TokenManager {
   }
 
   /**
-   * Verify and decode a JWT token
+   * Client-side token format validation for UI purposes only.
+   * ⚠️  WARNING: This is NOT secure for authorization decisions!
+   * ⚠️  Always use server-side verifyJwt() for auth/authz.
+   *
+   * Use cases:
+   * - Validating token format before sending to server
+   * - Client-side error handling and user feedback
+   * - Development/debugging token issues
    */
-  async verifyToken(
+  async validateTokenFormat(
     token: string,
     expectedAudience?: string
   ): Promise<JWTPayload> {
@@ -39,8 +46,19 @@ export class TokenManager {
 
       return payload as unknown as JWTPayload
     } catch (error) {
-      throw new Error(`Token verification failed: ${error}`)
+      throw new Error(`Token format validation failed: ${error}`)
     }
+  }
+
+  /**
+   * @deprecated Use validateTokenFormat() instead. This method name is misleading.
+   * Will be removed in v1.0.0
+   */
+  async verifyToken(
+    token: string,
+    expectedAudience?: string
+  ): Promise<JWTPayload> {
+    return this.validateTokenFormat(token, expectedAudience)
   }
 
   /**

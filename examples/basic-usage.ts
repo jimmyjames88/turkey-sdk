@@ -42,17 +42,26 @@ async function example() {
 
     console.log('Login successful:', loginResponse.user)
 
-    // Verify token
-    const payload = await client.verifyToken(loginResponse.accessToken)
-    console.log('Token verified. Payload:', payload)
+    // ✅ Client-side format validation (UI purposes only)
+    try {
+      const payload = await client.validateTokenFormat(
+        loginResponse.accessToken
+      )
+      console.log('Token format is valid. User:', payload.email)
+    } catch {
+      console.log('Token format invalid, redirecting to login...')
+    }
 
-    // Get user info from token
+    // ✅ Get user info from token (UI purposes)
     const userInfo = client.getUserFromToken(loginResponse.accessToken)
     console.log('User from token:', userInfo)
 
-    // Check token expiration
+    // ✅ Check token expiration (refresh timing)
     const timeUntilExpiry = client.getTimeUntilExpiry(loginResponse.accessToken)
     console.log(`Token expires in ${timeUntilExpiry} seconds`)
+
+    // Note: For server-side authorization, always use:
+    // const payload = await verifyJwt(token, { baseUrl: 'http://localhost:3000' })
 
     // Refresh tokens
     console.log('Refreshing tokens...')

@@ -269,13 +269,22 @@ try {
 
 ##### Token Verification Methods
 
-###### `verifyToken(token: string, audience?: string): Promise<JWTPayload>`
+###### `validateTokenFormat(token: string, audience?: string): Promise<JWTPayload>`
 
-Verify a JWT token's signature and claims using JWKS.
+Client-side token format validation for UI purposes only.
+
+⚠️ **WARNING: This is NOT secure for authorization decisions!**
+⚠️ **Always use server-side `verifyJwt()` for auth/authz.**
+
+**Use cases:**
+
+- Validating token format before sending to server
+- Client-side error handling and user feedback
+- Development/debugging token issues
 
 **Parameters:**
 
-- `token: string` - JWT token to verify
+- `token: string` - JWT token to validate
 - `audience?: string` - Optional audience to verify (defaults to client's audience)
 
 **Returns:**
@@ -298,13 +307,25 @@ interface JWTPayload {
 
 ```typescript
 try {
-  const payload = await client.verifyToken(accessToken)
-  console.log('Token is valid for user:', payload.email)
-  console.log('Token expires at:', new Date(payload.exp * 1000))
+  // ✅ Good: Format validation for UX
+  const payload = await client.validateTokenFormat(accessToken)
+  console.log('Token format is valid, user:', payload.email)
+
+  // ❌ Bad: Don't use for security decisions!
+  // if (payload.role === 'admin') { return adminData } // Insecure!
 } catch (error) {
-  console.error('Token verification failed:', error.message)
+  console.error('Token format validation failed:', error.message)
+  showLoginForm() // UX decision only
 }
 ```
+
+---
+
+###### `verifyToken(token: string, audience?: string): Promise<JWTPayload>` ⚠️ **DEPRECATED**
+
+**This method is deprecated and will be removed in v1.0.0. Use `validateTokenFormat()` instead.**
+
+This method name is misleading as it suggests security when it's only format validation.
 
 ---
 
@@ -500,6 +521,8 @@ const shopToken = await shopClient.login({ ... })
 
 ## Server-side verification and middleware examples
 
+**🔒 CRITICAL: Only server-side `verifyJwt()` should be used for authorization decisions!**
+
 The SDK includes a `verifyJwt` helper for server-side token verification using Turkey's JWKS. Use this from your server-side code or middleware to validate tokens and extract claims.
 
 Example usage in Express:
@@ -516,6 +539,8 @@ app.use(async (req, res, next) => {
     const auth = req.headers.authorization || ''
     if (!auth.startsWith('Bearer ')) return res.status(401).end()
     const token = auth.slice(7)
+
+    // ✅ This is the ONLY secure way to verify tokens
     const payload = await verifyJwt(token, config)
     ;(req as any).user = payload
     next()
@@ -524,6 +549,13 @@ app.use(async (req, res, next) => {
   }
 })
 ```
+
+**Why server-side verification matters:**
+
+- Client-side verification can be bypassed by attackers
+- JWKS keys are fetched securely from the Turkey server
+- Proper audience validation prevents cross-app token reuse
+- Token revocation and rotation are handled correctly
 
 There are also example middleware files in `examples/middleware` for Express and Next.js.
 

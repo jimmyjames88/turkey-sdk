@@ -43,4 +43,45 @@ export default [
     ],
     external: ['jose', 'js-cookie', 'react', 'react/jsx-runtime'],
   },
+  // Middleware ESM build
+  {
+    input: 'src/middleware/index.ts',
+    output: {
+      file: 'dist/middleware/index.esm.js',
+      format: 'es',
+      sourcemap: true,
+      exports: 'named',
+    },
+    plugins: [
+      resolve(),
+      commonjs(),
+      typescript({
+        tsconfig: './tsconfig.json',
+        declaration: true,
+        declarationDir: './dist',
+        outDir: './dist/middleware',
+      }),
+    ],
+    external: ['jose', 'js-cookie', 'react', 'react/jsx-runtime'],
+  },
+  // Middleware CommonJS build
+  {
+    input: 'src/middleware/index.ts',
+    output: {
+      file: 'dist/middleware/index.js',
+      format: 'cjs',
+      sourcemap: true,
+      exports: 'named',
+    },
+    plugins: [
+      resolve(),
+      commonjs(),
+      typescript({
+        tsconfig: './tsconfig.json',
+        declaration: false,
+        declarationMap: false,
+      }),
+    ],
+    external: ['jose', 'js-cookie', 'react', 'react/jsx-runtime'],
+  },
 ]

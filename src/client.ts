@@ -193,7 +193,17 @@ export class TurKeyClient {
   }
 
   /**
-   * Verify and decode JWT token
+   * Client-side token format validation for UI purposes only.
+   * ⚠️  WARNING: This is NOT secure for authorization decisions!
+   * ⚠️  Always use server-side verifyJwt() for auth/authz.
+   */
+  async validateTokenFormat(token: string, audience?: string) {
+    return this.tokenManager.validateTokenFormat(token, audience)
+  }
+
+  /**
+   * @deprecated Use validateTokenFormat() instead. This method name is misleading.
+   * Will be removed in v1.0.0
    */
   async verifyToken(token: string, audience?: string) {
     return this.tokenManager.verifyToken(token, audience)

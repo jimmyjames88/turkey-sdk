@@ -1,8 +1,17 @@
 import { TurKeyClient } from '../client'
 import { MemoryTokenStorage } from '../storage'
+import { jwtVerify } from 'jose'
 
 // Mock fetch globally
 global.fetch = jest.fn()
+
+// Mock jose methods
+jest.mock('jose', () => ({
+  jwtVerify: jest.fn(),
+  createRemoteJWKSet: jest.fn(),
+}))
+
+const mockJwtVerify = jwtVerify as jest.MockedFunction<typeof jwtVerify>
 
 describe('TurKeyClient', () => {
   let client: TurKeyClient
@@ -113,6 +122,52 @@ describe('TurKeyClient', () => {
     it('should check token expiration', () => {
       const isExpired = client.isTokenExpired(mockToken)
       expect(isExpired).toBe(false) // Mock token has far future expiry
+    })
+
+    it('should have deprecated verifyToken method', async () => {
+      // Mock the jwtVerify function to return a payload
+      const mockPayload = {
+        sub: 'user-123',
+        email: 'test@example.com',
+        role: 'user',
+        tenantId: 'test-tenant',
+        aud: 'test-app',
+        iss: 'https://auth.test.com',
+        exp: Math.floor(Date.now() / 1000) + 3600,
+        iat: Math.floor(Date.now() / 1000),
+      }
+
+      mockJwtVerify.mockResolvedValueOnce({
+        payload: mockPayload,
+        protectedHeader: {},
+      } as any)
+
+      // Test that deprecated method still works
+      const payload = await client.verifyToken(mockToken)
+      expect(payload).toEqual(mockPayload)
+    })
+
+    it('should have new validateTokenFormat method', async () => {
+      // Mock the jwtVerify function to return a payload
+      const mockPayload = {
+        sub: 'user-123',
+        email: 'test@example.com',
+        role: 'user',
+        tenantId: 'test-tenant',
+        aud: 'test-app',
+        iss: 'https://auth.test.com',
+        exp: Math.floor(Date.now() / 1000) + 3600,
+        iat: Math.floor(Date.now() / 1000),
+      }
+
+      mockJwtVerify.mockResolvedValueOnce({
+        payload: mockPayload,
+        protectedHeader: {},
+      } as any)
+
+      // Test that new method works the same way
+      const payload = await client.validateTokenFormat(mockToken)
+      expect(payload).toEqual(mockPayload)
     })
   })
 })

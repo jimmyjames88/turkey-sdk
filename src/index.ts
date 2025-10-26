@@ -4,6 +4,20 @@ export { TokenManager } from './token-manager'
 export { verifyJwt } from './server/verify'
 export { introspectToken, revokeToken } from './server/introspect'
 
+// Middleware (server-side)
+export {
+  createTurkeyMiddleware,
+  turkeyAuth,
+  requireAuth,
+  optionalAuth,
+  type TurKeyUser,
+  type TurKeyPayload,
+  type TurKeyAuthenticatedRequest,
+  type TurKeyMiddlewareConfig,
+  type ExpressAuthRequest,
+  type NextAuthRequest,
+} from './middleware'
+
 // Password validation utilities
 export {
   validatePassword,
