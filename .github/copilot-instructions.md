@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-TurKey SDK is a TypeScript JWT authentication client library that provides both client-side and server-side utilities for TurKey authentication service integration. The library supports React hooks, multiple storage backends, and comprehensive JWT verification.
+TurKey SDK is a TypeScript JWT authentication client library that provides both client-side and server-side utilities for TurKey authentication service integration. The library supports React hooks, multiple storage backends, comprehensive JWT verification, and zero-configuration server middleware.
 
 ## Workspace Ecosystem
 
@@ -56,6 +56,14 @@ Three storage implementations following `TokenStorage` interface:
 - **Auto-refresh logic**: Refreshes tokens 5 minutes before expiry (minimum 30s buffer)
 - **useTurkey()**: Primary hook for auth operations
 - **Storage-agnostic**: Pass storage instance to provider
+
+### Server Middleware (`src/middleware/`)
+
+- **Zero-config approach**: Uses environment variables (`TURKEY_BASE_URL`, `TURKEY_AUDIENCE`, `TURKEY_TENANT_ID`)
+- **Framework-agnostic core**: Works with Express, Fastify, Koa, Next.js, etc.
+- **Smart token extraction**: Automatically finds tokens in headers, cookies, custom headers
+- **Type safety**: Framework-specific request augmentation without bias
+- **Development mode**: Enhanced logging when `NODE_ENV=development`
 
 ## Development Patterns
 

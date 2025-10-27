@@ -10,8 +10,91 @@ A TypeScript SDK for seamless integration with TurKey JWT authentication service
 - 🍪 **Flexible Storage** - Cookie, localStorage, or memory storage
 - ⚛️ **React Integration** - Ready-to-use hooks and providers
 - 🛡️ **JWT Verification** - ES256 signature verification with JWKS
-- 📦 **Multiple Formats** - ESM and CommonJS builds
+- � **Server Middleware** - Zero-config authentication middleware
+- �📦 **Multiple Formats** - ESM and CommonJS builds
 - 🧪 **Well Tested** - Comprehensive test suite
+
+## Architecture Overview
+
+### Full-Stack Authentication Flow
+
+```mermaid
+graph TB
+    subgraph "Frontend Applications"
+        A[React App] --> B[TurKey Client]
+        C[Vue/Svelte App] --> B
+        D[Next.js App] --> B
+    end
+
+    subgraph "TurKey SDK"
+        B --> E[Token Storage]
+        B --> F[Client Auth Methods]
+        E --> G[Cookie/LocalStorage]
+    end
+
+    subgraph "Backend Services"
+        H[Express API] --> I[TurKey Middleware]
+        J[Next.js API] --> K[Next.js Wrapper]
+        L[Other Framework] --> M[Core Middleware]
+    end
+
+    subgraph "TurKey Server"
+        N[Authentication API]
+        O[JWKS Endpoint]
+    end
+
+    B --> N
+    I --> O
+    K --> O
+    M --> O
+
+    style B fill:#e1f5fe
+    style I fill:#f3e5f5
+    style K fill:#f3e5f5
+    style M fill:#f3e5f5
+```
+
+### Middleware Convenience Layers
+
+```mermaid
+graph LR
+    subgraph "Application Layer"
+        A[Your App Code]
+    end
+
+    subgraph "Convenience Wrappers"
+        B[Express Helpers]
+        C[Next.js Helpers]
+        D[Framework Adapters]
+    end
+
+    subgraph "Core Middleware"
+        E[Universal Engine]
+        F[Token Extraction]
+        G[JWT Verification]
+        H[Error Handling]
+    end
+
+    subgraph "TurKey Server"
+        I[JWKS Verification]
+    end
+
+    A --> B
+    A --> C
+    A --> D
+    B --> E
+    C --> E
+    D --> E
+    E --> F
+    F --> G
+    G --> H
+    G --> I
+
+    style E fill:#fff3e0
+    style B fill:#e8f5e8
+    style C fill:#e8f5e8
+    style D fill:#e8f5e8
+```
 
 ## Installation
 
@@ -81,6 +164,63 @@ function LoginComponent() {
     </button>
   )
 }
+```
+
+### Server Middleware (Zero Configuration)
+
+Protect your API routes with minimal setup using environment-based configuration:
+
+```typescript
+// Set environment variables
+// TURKEY_BASE_URL=https://your-turkey-server.com
+// TURKEY_AUDIENCE=my-app
+
+import { turkeyAuth } from '@jimmyjames88/turkey-sdk/middleware'
+import express from 'express'
+
+const app = express()
+
+// Zero-config authentication - uses environment variables
+app.use('/api', turkeyAuth())
+
+// Your protected routes automatically have req.user
+app.get('/api/profile', (req, res) => {
+  res.json({
+    user: req.user, // ✅ Fully typed user object
+    message: `Hello ${req.user.email}!`,
+  })
+})
+
+// Optional authentication for public endpoints
+import { optionalAuth } from '@jimmyjames88/turkey-sdk/middleware'
+app.use('/api/public', optionalAuth())
+
+app.get('/api/public/stats', (req, res) => {
+  if (req.user) {
+    res.json({ message: `Personalized stats for ${req.user.email}` })
+  } else {
+    res.json({ message: 'General stats for anonymous user' })
+  }
+})
+```
+
+#### Framework Compatibility
+
+The core middleware works with **any Node.js framework**:
+
+```typescript
+import { createTurkeyMiddleware } from '@jimmyjames88/turkey-sdk/middleware'
+
+// Fastify
+const middleware = createTurkeyMiddleware()
+fastify.addHook('preHandler', middleware)
+
+// Koa
+app.use(async (ctx, next) => {
+  await middleware(ctx.request, ctx.response, next)
+})
+
+// Hapi, NestJS, etc. - works with any framework
 ```
 
 ## API Reference
@@ -519,11 +659,43 @@ const blogToken = await blogClient.login({ ... })
 const shopToken = await shopClient.login({ ... })
 ```
 
-## Server-side verification and middleware examples
+## Server Middleware API
 
-**🔒 CRITICAL: Only server-side `verifyJwt()` should be used for authorization decisions!**
+### Zero-Configuration Setup
 
-The SDK includes a `verifyJwt` helper for server-side token verification using Turkey's JWKS. Use this from your server-side code or middleware to validate tokens and extract claims.
+The TurKey SDK provides drop-in middleware for server-side authentication with automatic environment configuration:
+
+```bash
+# Environment Variables (Required)
+TURKEY_BASE_URL=https://your-turkey-server.com
+
+# Optional Configuration
+TURKEY_AUDIENCE=my-app
+TURKEY_TENANT_ID=my-company
+NODE_ENV=development  # Enables enhanced logging
+```
+
+**🔒 CRITICAL: Only server-side middleware should be used for authorization decisions!**
+
+### Quick Start
+
+```typescript
+import { turkeyAuth } from '@jimmyjames88/turkey-sdk/middleware'
+import express from 'express'
+
+const app = express()
+
+// Zero-config authentication - uses environment variables
+app.use('/api', turkeyAuth())
+
+// Your protected routes automatically have req.user
+app.get('/api/profile', (req, res) => {
+  res.json({
+    user: req.user, // ✅ Fully typed user object
+    message: `Hello ${req.user.email}!`,
+  })
+})
+```
 
 Example usage in Express:
 
