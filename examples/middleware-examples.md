@@ -8,7 +8,7 @@ import { turkeyAuth, optionalAuth } from '@jimmyjames88/turkey-sdk/middleware'
 
 // Set environment variables:
 // TURKEY_BASE_URL=https://your-turkey-server.com
-// TURKEY_AUDIENCE=my-app
+// TURKEY_APP_ID=my-app
 
 const app = express()
 
@@ -21,7 +21,6 @@ app.get('/api/profile', (req, res) => {
     user: req.user, // ✅ Fully typed user object
     message: `Hello ${req.user.email}!`,
     role: req.user.role,
-    tenant: req.user.tenantId,
   })
 })
 
@@ -52,7 +51,7 @@ import { createTurkeyMiddleware } from '@jimmyjames88/turkey-sdk/middleware'
 
 const middleware = createTurkeyMiddleware({
   baseUrl: process.env.TURKEY_BASE_URL,
-  audience: 'my-app',
+  appId: 'my-app',
 })
 
 // Fastify
@@ -81,9 +80,8 @@ app.get('/api/profile', turkeyAuth(), (req: ExpressAuthRequest, res) => {
   const userId: string = req.user.id
   const userEmail: string = req.user.email
   const userRole: string = req.user.role
-  const tenantId: string = req.user.tenantId
 
-  res.json({ userId, userEmail, userRole, tenantId })
+  res.json({ userId, userEmail, userRole })
 })
 ```
 
@@ -137,7 +135,7 @@ app.use('/api', async (req, res, next) => {
     // Verify against TurKey server
     const payload = await verifyJwt(token, {
       baseUrl: process.env.TURKEY_BASE_URL,
-      audience: process.env.TURKEY_AUDIENCE,
+      appId: process.env.TURKEY_APP_ID,
     })
 
     // Attach user data
@@ -145,7 +143,6 @@ app.use('/api', async (req, res, next) => {
       id: payload.sub,
       email: payload.email,
       role: payload.role,
-      tenantId: payload.tenantId,
     }
 
     next()

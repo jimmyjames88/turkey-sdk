@@ -10,7 +10,7 @@ export async function exampleNextMiddleware(request: NextRequest, config: any) {
   const token = auth.slice(7)
   try {
     const payload = await verifyJwt(token, config)
-    // You can use payload to enforce tenant/role
+    // You can use payload to enforce role-based access
     return new Response(JSON.stringify({ ok: true, user: payload }))
   } catch (err: any) {
     return new Response(JSON.stringify({ error: err.message }), { status: 401 })

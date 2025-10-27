@@ -5,7 +5,7 @@ A TypeScript SDK for seamless integration with TurKey JWT authentication service
 ## Features
 
 - 🔐 **Complete Authentication Flow** - Login, register, refresh, logout
-- 🎯 **App-Specific Audiences** - Token isolation between applications
+- 🎯 **App-Specific Tokens** - Token isolation between applications
 - ⚡ **TypeScript First** - Full type safety and IntelliSense
 - 🍪 **Flexible Storage** - Cookie, localStorage, or memory storage
 - ⚛️ **React Integration** - Ready-to-use hooks and providers
@@ -19,63 +19,91 @@ A TypeScript SDK for seamless integration with TurKey JWT authentication service
 ### Full-Stack Authentication Flow
 
 ```mermaid
-graph TB
-    subgraph "Frontend Applications"
-        A[React App] --> B[TurKey Client]
-        C[Vue/Svelte App] --> B
-        D[Next.js App] --> B
+flowchart TB
+    subgraph frontend ["Frontend Applications"]
+        A[React App]
+        C[Vue/Svelte App]
+        D[Next.js App]
     end
 
-    subgraph "TurKey SDK"
-        B --> E[Token Storage]
-        B --> F[Client Auth Methods]
-        E --> G[Cookie/LocalStorage]
+    subgraph sdk ["TurKey SDK"]
+        B[TurKey Client]
+        E[Token Storage]
+        F[Client Auth Methods]
+        G[Cookie/LocalStorage]
     end
 
-    subgraph "Backend Services"
-        H[Express API] --> I[TurKey Middleware]
-        J[Next.js API] --> K[Next.js Wrapper]
-        L[Other Framework] --> M[Core Middleware]
+    subgraph backend ["Backend Services"]
+        H[Express API]
+        I[TurKey Middleware]
+        J[Next.js API]
+        K[Next.js Wrapper]
+        L[Other Framework]
+        M[Core Middleware]
     end
 
-    subgraph "TurKey Server"
+    subgraph server ["TurKey Server"]
         N[Authentication API]
         O[JWKS Endpoint]
     end
+
+    A --> B
+    C --> B
+    D --> B
+    B --> E
+    B --> F
+    E --> G
+
+    H --> I
+    J --> K
+    L --> M
 
     B --> N
     I --> O
     K --> O
     M --> O
-
-    style B fill:#e1f5fe
-    style I fill:#f3e5f5
-    style K fill:#f3e5f5
-    style M fill:#f3e5f5
 ```
+
+<details>
+<summary>Alternative ASCII Diagram (if Mermaid doesn't render)</summary>
+
+```
+Frontend Apps          TurKey SDK              Backend Services        TurKey Server
+┌─────────────┐        ┌─────────────────┐      ┌─────────────────┐      ┌─────────────┐
+│ React App   │──────→ │ TurKey Client   │────→ │ Express API     │────→ │ Auth API    │
+├─────────────┤        ├─────────────────┤      ├─────────────────┤      ├─────────────┤
+│ Vue/Svelte  │──────→ │ Token Storage   │      │ TurKey Middleware│────→ │ JWKS        │
+├─────────────┤        ├─────────────────┤      ├─────────────────┤      │ Endpoint    │
+│ Next.js App │──────→ │ Client Methods  │      │ Next.js Wrapper │────→ │             │
+└─────────────┘        └─────────────────┘      ├─────────────────┤      └─────────────┘
+                                                │ Other Framework │────→
+                                                └─────────────────┘
+```
+
+</details>
 
 ### Middleware Convenience Layers
 
 ```mermaid
-graph LR
-    subgraph "Application Layer"
+flowchart LR
+    subgraph app ["Application Layer"]
         A[Your App Code]
     end
 
-    subgraph "Convenience Wrappers"
+    subgraph wrappers ["Convenience Wrappers"]
         B[Express Helpers]
         C[Next.js Helpers]
         D[Framework Adapters]
     end
 
-    subgraph "Core Middleware"
+    subgraph core ["Core Middleware"]
         E[Universal Engine]
         F[Token Extraction]
         G[JWT Verification]
         H[Error Handling]
     end
 
-    subgraph "TurKey Server"
+    subgraph server ["TurKey Server"]
         I[JWKS Verification]
     end
 
@@ -89,14 +117,18 @@ graph LR
     F --> G
     G --> H
     G --> I
-
-    style E fill:#fff3e0
-    style B fill:#e8f5e8
-    style C fill:#e8f5e8
-    style D fill:#e8f5e8
 ```
 
-## Installation
+<details>
+<summary>Alternative ASCII Diagram (if Mermaid doesn't render)</summary>
+
+```
+App Code ──→ Express Helpers ──┐
+         ──→ Next.js Helpers ──┼──→ Universal Engine ──→ Token Extraction ──→ JWT Verification ──→ TurKey Server
+         ──→ Framework Adapters ┘                                           ──→ Error Handling
+```
+
+</details>## Installation
 
 ```bash
 npm install @jimmyjames88/turkey-sdk
@@ -111,15 +143,13 @@ import { TurKeyClient, CookieTokenStorage } from '@jimmyjames88/turkey-sdk'
 
 const client = new TurKeyClient({
   baseUrl: 'https://auth.yourapp.com',
-  audience: 'my-app',
-  tenantId: 'my-tenant',
+  appId: 'my-app',
 })
 
 // Login
 const { user, accessToken, refreshToken } = await client.login({
   email: 'user@example.com',
   password: 'securepassword',
-  tenantId: 'my-tenant',
 })
 
 // Store tokens
@@ -139,11 +169,11 @@ import { TurKeyClient, AuthProvider, useTurkey } from '@jimmyjames88/turkey-sdk'
 function App() {
   const client = new TurKeyClient({
     baseUrl: 'https://auth.yourapp.com',
-    audience: 'my-app',
+    appId: 'my-app',
   })
 
   return (
-    <AuthProvider client={client} tenantId="my-tenant">
+    <AuthProvider client={client}>
       <LoginComponent />
     </AuthProvider>
   )
@@ -173,7 +203,7 @@ Protect your API routes with minimal setup using environment-based configuration
 ```typescript
 // Set environment variables
 // TURKEY_BASE_URL=https://your-turkey-server.com
-// TURKEY_AUDIENCE=my-app
+// TURKEY_APP_ID=my-app
 
 import { turkeyAuth } from '@jimmyjames88/turkey-sdk/middleware'
 import express from 'express'
@@ -249,8 +279,7 @@ Authenticate a user with email/password credentials.
 interface LoginParams {
   email: string // User's email address
   password: string // User's password
-  tenantId: string // Tenant identifier
-  audience?: string // Optional audience for app-specific tokens
+  appId?: string // Optional app identifier for app-specific tokens
 }
 ```
 
@@ -262,7 +291,6 @@ interface AuthResponse {
     id: string
     email: string
     role: string
-    tenantId: string
   }
   accessToken: string // JWT access token
   refreshToken: string // JWT refresh token
@@ -278,7 +306,6 @@ try {
   const response = await client.login({
     email: 'user@example.com',
     password: 'securepassword',
-    tenantId: 'my-tenant',
   })
 
   console.log('Logged in user:', response.user)
@@ -301,9 +328,8 @@ Register a new user account.
 interface RegisterParams {
   email: string // User's email address
   password: string // User's password
-  tenantId: string // Tenant identifier
   role?: 'user' | 'admin' // User role (default: 'user')
-  audience?: string // Optional audience for app-specific tokens
+  appId?: string // Optional app identifier for app-specific tokens
 }
 ```
 
@@ -316,9 +342,8 @@ try {
   const response = await client.register({
     email: 'newuser@example.com',
     password: 'securepassword',
-    tenantId: 'my-tenant',
     role: 'user',
-    audience: 'my-app', // Optional: for app-specific tokens
+    appId: 'my-app', // Optional: for app-specific tokens
   })
 
   console.log('User registered:', response.user)
@@ -338,7 +363,7 @@ Refresh an expired access token using a refresh token.
 ```typescript
 interface RefreshParams {
   refreshToken: string // Valid refresh token
-  audience?: string // Optional audience for app-specific tokens
+  appId?: string // Optional appId for app-specific tokens
 }
 ```
 
@@ -409,7 +434,7 @@ try {
 
 ##### Token Verification Methods
 
-###### `validateTokenFormat(token: string, audience?: string): Promise<JWTPayload>`
+###### `validateTokenFormat(token: string, appId?: string): Promise<JWTPayload>`
 
 Client-side token format validation for UI purposes only.
 
@@ -425,7 +450,7 @@ Client-side token format validation for UI purposes only.
 **Parameters:**
 
 - `token: string` - JWT token to validate
-- `audience?: string` - Optional audience to verify (defaults to client's audience)
+- `appId?: string` - Optional app ID to verify (defaults to client's appId)
 
 **Returns:**
 
@@ -434,9 +459,8 @@ interface JWTPayload {
   sub: string // Subject (user ID)
   email: string // User email
   role: string // User role
-  tenantId: string // Tenant ID
   scope?: string // Token scope
-  aud: string // Audience
+  aud: string // App ID
   iss: string // Issuer
   exp: number // Expiration timestamp
   iat: number // Issued at timestamp
@@ -461,7 +485,7 @@ try {
 
 ---
 
-###### `verifyToken(token: string, audience?: string): Promise<JWTPayload>` ⚠️ **DEPRECATED**
+###### `verifyToken(token: string, appId?: string): Promise<JWTPayload>` ⚠️ **DEPRECATED**
 
 **This method is deprecated and will be removed in v1.0.0. Use `validateTokenFormat()` instead.**
 
@@ -508,7 +532,6 @@ interface User {
   id: string
   email: string
   role: string
-  tenantId: string
 }
 ```
 
@@ -638,20 +661,20 @@ const authenticatedFetch = useAuthenticatedFetch(storage)
 const response = await authenticatedFetch('/api/protected-endpoint')
 ```
 
-## App-Specific Audiences
+## App-Specific Tokens
 
-TurKey supports app-specific audiences for enhanced security:
+TurKey supports app-specific tokens for enhanced security:
 
 ```typescript
-// Different apps request tokens with different audiences
+// Different apps request tokens with different app IDs
 const blogClient = new TurKeyClient({
   baseUrl: 'https://auth.yourapp.com',
-  audience: 'blog-app',
+  appId: 'blog-app',
 })
 
 const shopClient = new TurKeyClient({
   baseUrl: 'https://auth.yourapp.com',
-  audience: 'shop-app',
+  appId: 'shop-app',
 })
 
 // Tokens are isolated - blog tokens won't work for shop
@@ -670,8 +693,7 @@ The TurKey SDK provides drop-in middleware for server-side authentication with a
 TURKEY_BASE_URL=https://your-turkey-server.com
 
 # Optional Configuration
-TURKEY_AUDIENCE=my-app
-TURKEY_TENANT_ID=my-company
+TURKEY_APP_ID=my-app
 NODE_ENV=development  # Enables enhanced logging
 ```
 
@@ -726,7 +748,7 @@ app.use(async (req, res, next) => {
 
 - Client-side verification can be bypassed by attackers
 - JWKS keys are fetched securely from the Turkey server
-- Proper audience validation prevents cross-app token reuse
+- Proper app ID validation prevents cross-app token reuse
 - Token revocation and rotation are handled correctly
 
 There are also example middleware files in `examples/middleware` for Express and Next.js.
@@ -735,7 +757,7 @@ There are also example middleware files in `examples/middleware` for Express and
 
 TurKey exposes introspection and revocation operations for server-side session management. The SDK provides helpers and client methods:
 
-- `client.introspect(token)` — returns token metadata (active, exp, scope, subject, tenant)
+- `client.introspect(token)` — returns token metadata (active, exp, scope, subject)
 - `client.revoke(token)` — revokes access or refresh tokens
 
 Server helper usage:
@@ -773,9 +795,8 @@ try {
 
 ```typescript
 interface TurKeyConfig {
-  baseUrl: string // TurKey service URL
-  audience?: string // Default audience for tokens
-  tenantId?: string // Default tenant ID
+  baseUrl: string // TurKey server URL
+  appId?: string // Default app identifier for tokens
   timeout?: number // Request timeout (default: 10000ms)
 }
 ```

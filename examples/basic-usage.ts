@@ -5,7 +5,7 @@ async function example() {
   // Initialize the client
   const client = new TurKeyClient({
     baseUrl: 'http://localhost:3000', // Your TurKey server
-    audience: 'my-app',
+    appId: 'my-app',
   })
 
   // Initialize storage
@@ -20,7 +20,6 @@ async function example() {
     const registerResponse = await client.register({
       email: 'john@example.com',
       password: 'SecurePass123!',
-      tenantId: 'my-company',
       role: 'user',
     })
 
@@ -37,7 +36,6 @@ async function example() {
     const loginResponse = await client.login({
       email: 'john@example.com',
       password: 'SecurePass123!',
-      tenantId: 'my-company',
     })
 
     console.log('Login successful:', loginResponse.user)

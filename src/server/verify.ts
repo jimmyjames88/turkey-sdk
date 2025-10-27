@@ -8,8 +8,8 @@ import { TokenManager } from '../token-manager'
 export async function verifyJwt(
   token: string,
   config: TurKeyConfig,
-  expectedAudience?: string
+  expectedAppId?: string
 ): Promise<JWTPayload> {
   const manager = new TokenManager(config)
-  return manager.verifyToken(token, expectedAudience)
+  return manager.verifyToken(token, expectedAppId)
 }

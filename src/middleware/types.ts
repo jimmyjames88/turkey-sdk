@@ -7,7 +7,6 @@ export interface TurKeyUser {
   id: string
   email: string
   role: string
-  tenantId: string
 }
 
 /**
@@ -17,7 +16,6 @@ export interface TurKeyPayload extends JWTPayload {
   sub: string
   email: string
   role: string
-  tenantId: string
 }
 
 /**
@@ -55,8 +53,7 @@ export interface NextAuthRequest extends TurKeyAuthenticatedRequest {
  */
 export interface TurKeyMiddlewareConfig {
   baseUrl?: string
-  audience?: string
-  tenantId?: string
+  appId?: string
   requireAuth?: boolean
   cookieName?: string
   onError?: (error: Error, req: any, res: any) => void | Promise<void>
@@ -68,7 +65,6 @@ export interface TurKeyMiddlewareConfig {
  */
 export interface TurKeyEnvironment {
   TURKEY_BASE_URL?: string
-  TURKEY_AUDIENCE?: string
-  TURKEY_TENANT_ID?: string
+  TURKEY_APP_ID?: string
   NODE_ENV?: string
 }

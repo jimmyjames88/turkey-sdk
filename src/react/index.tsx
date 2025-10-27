@@ -20,8 +20,8 @@ interface AuthContextValue {
   user: User | null
   isAuthenticated: boolean
   isLoading: boolean
-  login: (params: Omit<LoginRequest, 'tenantId'>) => Promise<AuthResponse>
-  register: (params: Omit<RegisterRequest, 'tenantId'>) => Promise<AuthResponse>
+  login: (params: LoginRequest) => Promise<AuthResponse>
+  register: (params: RegisterRequest) => Promise<AuthResponse>
   logout: () => Promise<void>
   refreshTokens: () => Promise<void>
   client: TurKeyClient
@@ -115,7 +115,6 @@ function useAutoRefresh(
 interface AuthProviderProps {
   children: ReactNode
   client: TurKeyClient
-  tenantId: string
   storage?: TokenStorage
   autoRefresh?: boolean
 }
@@ -123,7 +122,6 @@ interface AuthProviderProps {
 export function AuthProvider({
   children,
   client,
-  tenantId,
   storage = new CookieTokenStorage(),
   autoRefresh = true,
 }: AuthProviderProps) {
@@ -183,11 +181,11 @@ export function AuthProvider({
   }, [client, storage])
 
   const login = useCallback(
-    async (params: Omit<LoginRequest, 'tenantId'>): Promise<AuthResponse> => {
+    async (params: LoginRequest): Promise<AuthResponse> => {
       console.log('🔍 Login: Starting login process...')
       setIsLoading(true)
       try {
-        const response = await client.login({ ...params, tenantId })
+        const response = await client.login(params)
         console.log('🔍 Login: API response received:', response)
 
         console.log('🔍 Login: Storing tokens...')
@@ -202,16 +200,14 @@ export function AuthProvider({
         setIsLoading(false)
       }
     },
-    [client, tenantId, storage]
+    [client, storage]
   )
 
   const register = useCallback(
-    async (
-      params: Omit<RegisterRequest, 'tenantId'>
-    ): Promise<AuthResponse> => {
+    async (params: RegisterRequest): Promise<AuthResponse> => {
       setIsLoading(true)
       try {
-        const response = await client.register({ ...params, tenantId })
+        const response = await client.register(params)
 
         storage.setTokens(response.accessToken, response.refreshToken)
         setUser(response.user)
@@ -221,7 +217,7 @@ export function AuthProvider({
         setIsLoading(false)
       }
     },
-    [client, tenantId, storage]
+    [client, storage]
   )
 
   const refreshTokens = useCallback(async () => {

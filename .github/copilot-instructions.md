@@ -9,7 +9,7 @@ TurKey SDK is a TypeScript JWT authentication client library that provides both 
 This SDK is part of a larger authentication ecosystem:
 
 - **turkey-sdk** (this project): TypeScript client library for consuming TurKey auth
-- **turkey**: Express.js authentication server with JWKS, refresh rotation, and multi-tenant support
+- **turkey**: Express.js authentication server with JWKS, refresh rotation, and app-specific support
 - **renoodles-next**: Next.js application demonstrating SDK integration patterns
 - **eslint-config-jimmyjames88**: Shared ESLint configuration across all projects
 
@@ -20,8 +20,7 @@ See `renoodles-next/src/lib/turkey-client.ts` for real-world SDK usage:
 ```typescript
 export const turkeyClient = new TurKeyClient({
   baseUrl: process.env.NEXT_PUBLIC_TURKEY_BASE_URL,
-  audience: 'renoodles-app',
-  tenantId: process.env.NEXT_PUBLIC_TURKEY_TENANT_ID,
+  appId: 'renoodles-app',
 })
 ```
 
@@ -38,7 +37,7 @@ export const turkeyClient = new TurKeyClient({
 
 - **JWKS-based verification**: Uses `jose` library with remote JWKS from `/.well-known/jwks.json`
 - **ES256 algorithm**: All tokens use Elliptic Curve signatures, not RSA
-- **Audience validation**: Critical for multi-app security - each app should have unique audience
+- **App ID validation**: Critical for multi-app security - each app should have unique identifier
 - **Client-side utilities**: `decodeToken()` for UI state, `isTokenExpired()` for refresh timing
 - **Security boundary**: Only server-side `verifyJwt()` should be used for authorization decisions
 
@@ -59,7 +58,7 @@ Three storage implementations following `TokenStorage` interface:
 
 ### Server Middleware (`src/middleware/`)
 
-- **Zero-config approach**: Uses environment variables (`TURKEY_BASE_URL`, `TURKEY_AUDIENCE`, `TURKEY_TENANT_ID`)
+- **Zero-config approach**: Uses environment variables (`TURKEY_BASE_URL`, `TURKEY_APP_ID`)
 - **Framework-agnostic core**: Works with Express, Fastify, Koa, Next.js, etc.
 - **Smart token extraction**: Automatically finds tokens in headers, cookies, custom headers
 - **Type safety**: Framework-specific request augmentation without bias
@@ -70,12 +69,11 @@ Three storage implementations following `TokenStorage` interface:
 ### Authentication Flow
 
 ```typescript
-// Always include tenantId and audience for proper token scoping
+// Simple authentication with app-specific token scoping
 const response = await client.login({
   email: 'user@example.com',
   password: 'password',
-  tenantId: 'company-id', // Required for multi-tenant
-  audience: 'specific-app', // Optional, falls back to client config
+  appId: 'specific-app', // Optional, falls back to client config
 })
 ```
 
@@ -153,7 +151,7 @@ if (client.isTokenExpired(accessToken)) {
 - Client-side: Use `isTokenExpired()` and `decodeToken()` for UI state decisions only
 - Server-side: Always use `verifyJwt()` with JWKS validation for authorization
 - Client-side `verifyToken()`: Only for format validation/debugging - never for security
-- Audience parameter is critical for security in multi-app scenarios
+- App ID parameter is critical for security in multi-app scenarios
 
 ### React State Management
 
@@ -171,7 +169,7 @@ See `examples/` directory for:
 
 ## Common Gotchas
 
-1. **Audience scope**: Different audiences create isolated token contexts
+1. **App ID scope**: Different app IDs create isolated token contexts
 2. **Storage persistence**: CookieStorage requires proper domain/path config for SSR
 3. **Auto-refresh timing**: Calculated from token expiry, not issuance time
 4. **JWKS caching**: TokenManager instances cache JWKS URLs - reuse instances when possible

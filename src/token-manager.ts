@@ -32,15 +32,15 @@ export class TokenManager {
    */
   async validateTokenFormat(
     token: string,
-    expectedAudience?: string
+    expectedAppId?: string
   ): Promise<JWTPayload> {
     try {
       const jwks = this.initJWKS()
-      const audience = expectedAudience || this.config.audience
+      const appId = expectedAppId || this.config.appId
 
       const { payload } = await jwtVerify(token, jwks, {
         issuer: this.config.baseUrl,
-        audience: audience,
+        audience: appId,
         algorithms: ['ES256'],
       })
 
@@ -56,9 +56,9 @@ export class TokenManager {
    */
   async verifyToken(
     token: string,
-    expectedAudience?: string
+    expectedAppId?: string
   ): Promise<JWTPayload> {
-    return this.validateTokenFormat(token, expectedAudience)
+    return this.validateTokenFormat(token, expectedAppId)
   }
 
   /**
@@ -119,14 +119,12 @@ export class TokenManager {
     id: string
     email: string
     role: string
-    tenantId: string
   } {
     const payload = this.decodeToken(token)
     return {
       id: payload.sub,
       email: payload.email,
       role: payload.role,
-      tenantId: payload.tenantId,
     }
   }
 }

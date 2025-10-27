@@ -21,7 +21,7 @@ describe('TurKey Middleware', () => {
     process.env = {
       ...originalEnv,
       TURKEY_BASE_URL: 'https://auth.test.com',
-      TURKEY_AUDIENCE: 'test-app',
+      TURKEY_APP_ID: 'test-app',
       NODE_ENV: 'test',
     }
     mockVerifyJwt.mockClear()
@@ -50,7 +50,6 @@ describe('TurKey Middleware', () => {
         sub: 'user-123',
         email: 'test@example.com',
         role: 'user',
-        tenantId: 'test-tenant',
         aud: 'test-app',
         iss: 'https://auth.test.com',
         exp: Math.floor(Date.now() / 1000) + 3600,
@@ -72,8 +71,7 @@ describe('TurKey Middleware', () => {
 
       expect(mockVerifyJwt).toHaveBeenCalledWith('valid-token', {
         baseUrl: 'https://auth.test.com',
-        audience: 'test-app',
-        tenantId: undefined,
+        appId: 'test-app',
       })
 
       expect(req).toHaveProperty('user')
@@ -119,7 +117,6 @@ describe('TurKey Middleware', () => {
         sub: 'user-123',
         email: 'test@example.com',
         role: 'user',
-        tenantId: 'test-tenant',
         aud: 'test-app',
         iss: 'https://auth.test.com',
         exp: Math.floor(Date.now() / 1000) + 3600,

@@ -13,7 +13,7 @@ import type {
 function getEnvironmentConfig(): Required<
   Pick<TurKeyMiddlewareConfig, 'baseUrl'>
 > &
-  Pick<TurKeyMiddlewareConfig, 'audience' | 'tenantId' | 'development'> {
+  Pick<TurKeyMiddlewareConfig, 'appId' | 'development'> {
   const env = process.env as TurKeyEnvironment
 
   // Validate required environment variables
@@ -28,17 +28,14 @@ function getEnvironmentConfig(): Required<
 
   if (isDevelopment) {
     console.log('🦃 TurKey Middleware: Development mode enabled')
-    if (!env.TURKEY_AUDIENCE) {
-      console.warn(
-        '⚠️  TURKEY_AUDIENCE not set - using default audience validation'
-      )
+    if (!env.TURKEY_APP_ID) {
+      console.warn('⚠️  TURKEY_APP_ID not set - using default app validation')
     }
   }
 
   return {
     baseUrl: env.TURKEY_BASE_URL,
-    audience: env.TURKEY_AUDIENCE,
-    tenantId: env.TURKEY_TENANT_ID,
+    appId: env.TURKEY_APP_ID,
     development: isDevelopment,
   }
 }
@@ -76,7 +73,6 @@ function extractUser(payload: TurKeyPayload): TurKeyUser {
     id: payload.sub,
     email: payload.email,
     role: payload.role,
-    tenantId: payload.tenantId,
   }
 }
 
@@ -137,8 +133,7 @@ export function createTurkeyMiddleware(
   const envConfig = getEnvironmentConfig()
   const config = {
     baseUrl: userConfig.baseUrl || envConfig.baseUrl,
-    audience: userConfig.audience || envConfig.audience,
-    tenantId: userConfig.tenantId || envConfig.tenantId,
+    appId: userConfig.appId || envConfig.appId,
     requireAuth: userConfig.requireAuth !== false, // Default to true
     cookieName: userConfig.cookieName || 'turkey_access_token',
     development: userConfig.development ?? envConfig.development ?? false,
@@ -156,7 +151,7 @@ export function createTurkeyMiddleware(
   if (config.development) {
     console.log('🦃 TurKey Middleware initialized:', {
       baseUrl: config.baseUrl,
-      audience: config.audience || 'default',
+      appId: config.appId || 'default',
       requireAuth: config.requireAuth,
       cookieName: config.cookieName,
     })
@@ -182,8 +177,7 @@ export function createTurkeyMiddleware(
       // Verify token server-side
       const payload = (await verifyJwt(token, {
         baseUrl: config.baseUrl,
-        audience: config.audience,
-        tenantId: config.tenantId,
+        appId: config.appId,
       })) as TurKeyPayload
 
       // Attach user data to request
@@ -199,7 +193,6 @@ export function createTurkeyMiddleware(
           userId: user.id,
           email: user.email,
           role: user.role,
-          tenantId: user.tenantId,
         })
       }
 

@@ -20,7 +20,7 @@ describe('TurKeyClient', () => {
   beforeEach(() => {
     client = new TurKeyClient({
       baseUrl: 'https://auth.test.com',
-      audience: 'test-app',
+      appId: 'test-app',
     })
 
     mockFetch.mockClear()
@@ -34,7 +34,6 @@ describe('TurKeyClient', () => {
             id: 'user-123',
             email: 'test@example.com',
             role: 'user',
-            tenantId: 'test-tenant',
           },
           accessToken: 'access-token',
           refreshToken: 'refresh-token',
@@ -51,7 +50,6 @@ describe('TurKeyClient', () => {
       const result = await client.login({
         email: 'test@example.com',
         password: 'password',
-        tenantId: 'test-tenant',
       })
 
       expect(result).toEqual(mockResponse.data)
@@ -65,8 +63,7 @@ describe('TurKeyClient', () => {
           body: JSON.stringify({
             email: 'test@example.com',
             password: 'password',
-            tenantId: 'test-tenant',
-            audience: 'test-app',
+            appId: 'test-app',
           }),
         })
       )
@@ -90,7 +87,6 @@ describe('TurKeyClient', () => {
         client.login({
           email: 'test@example.com',
           password: 'wrong-password',
-          tenantId: 'test-tenant',
         })
       ).rejects.toThrow('Invalid email or password')
     })
@@ -115,7 +111,6 @@ describe('TurKeyClient', () => {
         id: 'user-123',
         email: 'test@example.com',
         role: 'user',
-        tenantId: 'test-tenant',
       })
     })
 
@@ -130,7 +125,6 @@ describe('TurKeyClient', () => {
         sub: 'user-123',
         email: 'test@example.com',
         role: 'user',
-        tenantId: 'test-tenant',
         aud: 'test-app',
         iss: 'https://auth.test.com',
         exp: Math.floor(Date.now() / 1000) + 3600,
@@ -153,7 +147,6 @@ describe('TurKeyClient', () => {
         sub: 'user-123',
         email: 'test@example.com',
         role: 'user',
-        tenantId: 'test-tenant',
         aud: 'test-app',
         iss: 'https://auth.test.com',
         exp: Math.floor(Date.now() / 1000) + 3600,

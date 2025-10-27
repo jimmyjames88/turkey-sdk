@@ -63,7 +63,7 @@ export class TurKeyClient {
   async login(params: LoginRequest): Promise<AuthResponse> {
     const requestData = {
       ...params,
-      audience: params.audience || this.config.audience,
+      appId: params.appId || this.config.appId,
     }
 
     const response = await this.request<{ data: AuthResponse }>(
@@ -98,7 +98,7 @@ export class TurKeyClient {
     const requestData = {
       role: 'user' as const,
       ...params,
-      audience: params.audience || this.config.audience,
+      appId: params.appId || this.config.appId,
       validatePassword: undefined, // Remove from request data
     }
 
@@ -119,7 +119,7 @@ export class TurKeyClient {
   async refresh(params: RefreshRequest): Promise<TokenPair> {
     const requestData = {
       ...params,
-      audience: params.audience || this.config.audience,
+      appId: params.appId || this.config.appId,
     }
 
     const response = await this.request<{ data: TokenPair }>(
@@ -197,16 +197,16 @@ export class TurKeyClient {
    * ⚠️  WARNING: This is NOT secure for authorization decisions!
    * ⚠️  Always use server-side verifyJwt() for auth/authz.
    */
-  async validateTokenFormat(token: string, audience?: string) {
-    return this.tokenManager.validateTokenFormat(token, audience)
+  async validateTokenFormat(token: string, appId?: string) {
+    return this.tokenManager.validateTokenFormat(token, appId)
   }
 
   /**
    * @deprecated Use validateTokenFormat() instead. This method name is misleading.
    * Will be removed in v1.0.0
    */
-  async verifyToken(token: string, audience?: string) {
-    return this.tokenManager.verifyToken(token, audience)
+  async verifyToken(token: string, appId?: string) {
+    return this.tokenManager.verifyToken(token, appId)
   }
 
   /**

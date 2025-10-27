@@ -1,28 +1,25 @@
 export interface TurKeyConfig {
   baseUrl: string
-  audience?: string
-  tenantId?: string
+  appId?: string
   timeout?: number
 }
 
 export interface LoginRequest {
   email: string
   password: string
-  tenantId: string
-  audience?: string
+  appId?: string
 }
 
 export interface RegisterRequest {
   email: string
   password: string
-  tenantId: string
   role?: 'user' | 'admin'
-  audience?: string
+  appId?: string
 }
 
 export interface RefreshRequest {
   refreshToken: string
-  audience?: string
+  appId?: string
 }
 
 export interface AuthResponse {
@@ -30,7 +27,6 @@ export interface AuthResponse {
     id: string
     email: string
     role: string
-    tenantId: string
   }
   accessToken: string
   refreshToken: string
@@ -42,7 +38,6 @@ export interface User {
   id: string
   email: string
   role: string
-  tenantId: string
 }
 
 export interface TokenPair {
@@ -57,7 +52,6 @@ export interface JWTPayload {
   aud: string
   sub: string
   email: string
-  tenantId: string
   role: string
   scope: string
   jti: string

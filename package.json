@@ -1,6 +1,6 @@
 {
   "name": "@jimmyjames88/turkey-sdk",
-  "version": "0.2.3",
+  "version": "0.3.0",
   "description": "TypeScript SDK for TurKey JWT authentication service",
   "type": "module",
   "main": "dist/index.js",
