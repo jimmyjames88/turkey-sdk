@@ -6,6 +6,11 @@ export {
   optionalAuth,
 } from './core'
 
+// Next.js-specific exports
+export { getTurkeyUser, verifyNextJwt, extractNextToken } from './nextjs'
+
+export type { NextTurKeyUser, NextTurKeyConfig } from './nextjs'
+
 // Type exports
 export type {
   TurKeyUser,
