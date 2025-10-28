@@ -232,7 +232,7 @@ graph TB
 
 ### Edge Runtime Middleware (Next.js)
 
-````mermaid
+```mermaid
 graph LR
     subgraph NextJS["Next.js Application"]
         MW["middleware.ts<br/>Edge Runtime"]
@@ -272,11 +272,13 @@ graph LR
     style C2 fill:#ffebee
     style C3 fill:#e8f5e9
     style C4 fill:#e8f5e9
-```## Installation
+```
+
+## Installation
 
 ```bash
 npm install @jimmyjames88/turkey-sdk
-````
+```
 
 ## Quick Start
 
