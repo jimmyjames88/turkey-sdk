@@ -2,6 +2,12 @@
 
 A TypeScript SDK for seamless integration with TurKey JWT authentication service.
 
+## 📚 Documentation
+
+- **[README](./README.md)** - This file: Quick start, API reference, examples
+- **[Middleware Guide](./MIDDLEWARE-GUIDE.md)** - Comprehensive middleware implementation guide with security best practices
+- **[Examples](./examples/)** - Working code examples for various frameworks
+
 ## Features
 
 - 🔐 **Complete Authentication Flow** - Login, register, refresh, logout
@@ -16,123 +22,260 @@ A TypeScript SDK for seamless integration with TurKey JWT authentication service
 
 ## Architecture Overview
 
-### Full-Stack Authentication Flow
+The TurKey SDK provides a complete authentication solution spanning client applications, backend services, and the TurKey authentication server.
+
+### Authentication Flow
 
 ```mermaid
-flowchart TB
-    subgraph frontend ["Frontend Applications"]
-        A[React App]
-        C[Vue/Svelte App]
-        D[Next.js App]
-    end
+sequenceDiagram
+    participant User
+    participant App as Client App
+    participant SDK as TurKey SDK
+    participant Storage
+    participant Server as TurKey Server
 
-    subgraph sdk ["TurKey SDK"]
-        B[TurKey Client]
-        E[Token Storage]
-        F[Client Auth Methods]
-        G[Cookie/LocalStorage]
-    end
+    User->>App: Enter credentials
+    App->>SDK: client.login(email, password, appId)
+    SDK->>Server: POST /v1/auth/login
+    Server->>Server: Validate credentials
+    Server->>Server: Generate JWT (ES256)
+    Server-->>SDK: { accessToken, refreshToken, user }
+    SDK->>Storage: Store tokens
+    SDK-->>App: Return auth response
+    App-->>User: Show authenticated UI
 
-    subgraph backend ["Backend Services"]
-        H[Express API]
-        I[TurKey Middleware]
-        J[Next.js API]
-        K[Next.js Wrapper]
-        L[Other Framework]
-        M[Core Middleware]
-    end
+    Note over SDK,Storage: Tokens stored in cookies/localStorage
 
-    subgraph server ["TurKey Server"]
-        N[Authentication API]
-        O[JWKS Endpoint]
-    end
-
-    A --> B
-    C --> B
-    D --> B
-    B --> E
-    B --> F
-    E --> G
-
-    H --> I
-    J --> K
-    L --> M
-
-    B --> N
-    I --> O
-    K --> O
-    M --> O
+    User->>App: Access protected resource
+    App->>SDK: Fetch with token
+    SDK->>Storage: Get access token
+    Storage-->>SDK: Return token
+    SDK->>Server: API call with Authorization: Bearer <token>
+    Server->>Server: Verify JWT with JWKS
+    Server-->>SDK: Protected data
+    SDK-->>App: Return data
+    App-->>User: Display data
 ```
 
-<details>
-<summary>Alternative ASCII Diagram (if Mermaid doesn't render)</summary>
-
-```
-Frontend Apps          TurKey SDK              Backend Services        TurKey Server
-┌─────────────┐        ┌─────────────────┐      ┌─────────────────┐      ┌─────────────┐
-│ React App   │──────→ │ TurKey Client   │────→ │ Express API     │────→ │ Auth API    │
-├─────────────┤        ├─────────────────┤      ├─────────────────┤      ├─────────────┤
-│ Vue/Svelte  │──────→ │ Token Storage   │      │ TurKey Middleware│────→ │ JWKS        │
-├─────────────┤        ├─────────────────┤      ├─────────────────┤      │ Endpoint    │
-│ Next.js App │──────→ │ Client Methods  │      │ Next.js Wrapper │────→ │             │
-└─────────────┘        └─────────────────┘      ├─────────────────┤      └─────────────┘
-                                                │ Other Framework │────→
-                                                └─────────────────┘
-```
-
-</details>
-
-### Middleware Convenience Layers
+### Token Refresh Flow
 
 ```mermaid
-flowchart LR
-    subgraph app ["Application Layer"]
-        A[Your App Code]
-    end
+sequenceDiagram
+    participant App as Client App
+    participant SDK as TurKey SDK
+    participant Storage
+    participant Server as TurKey Server
 
-    subgraph wrappers ["Convenience Wrappers"]
-        B[Express Helpers]
-        C[Next.js Helpers]
-        D[Framework Adapters]
-    end
+    App->>SDK: API request
+    SDK->>Storage: Get access token
+    Storage-->>SDK: Token
+    SDK->>SDK: isTokenExpired(token)
 
-    subgraph core ["Core Middleware"]
-        E[Universal Engine]
-        F[Token Extraction]
-        G[JWT Verification]
-        H[Error Handling]
+    alt Token expired
+        SDK->>Storage: Get refresh token
+        Storage-->>SDK: Refresh token
+        SDK->>Server: POST /v1/auth/refresh
+        Server->>Server: Verify refresh token
+        Server->>Server: Generate new tokens
+        Server->>Server: Rotate refresh token
+        Server-->>SDK: { accessToken, refreshToken }
+        SDK->>Storage: Update tokens
+        SDK->>Server: Retry original request
+        Server-->>SDK: Success
+        SDK-->>App: Return data
+    else Token valid
+        SDK->>Server: Original request
+        Server-->>SDK: Success
+        SDK-->>App: Return data
     end
-
-    subgraph server ["TurKey Server"]
-        I[JWKS Verification]
-    end
-
-    A --> B
-    A --> C
-    A --> D
-    B --> E
-    C --> E
-    D --> E
-    E --> F
-    F --> G
-    G --> H
-    G --> I
 ```
 
-<details>
-<summary>Alternative ASCII Diagram (if Mermaid doesn't render)</summary>
+### Server Middleware Verification
 
-```
-App Code ──→ Express Helpers ──┐
-         ──→ Next.js Helpers ──┼──→ Universal Engine ──→ Token Extraction ──→ JWT Verification ──→ TurKey Server
-         ──→ Framework Adapters ┘                                           ──→ Error Handling
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Middleware as Next.js Middleware
+    participant JWKS as JWKS Endpoint
+    participant Route as Route Handler
+
+    Client->>Middleware: GET /dashboard (Cookie: turkey_access_token)
+    Middleware->>Middleware: Extract token from cookie/header
+
+    alt No token found
+        Middleware-->>Client: 307 Redirect to /auth/login?redirect=/dashboard
+    else Token found
+        Middleware->>JWKS: GET /.well-known/jwks.json
+        JWKS-->>Middleware: Public keys (ES256)
+        Middleware->>Middleware: jwtVerify(token, JWKS, { audience: appId })
+
+        alt Verification failed
+            Middleware-->>Client: 307 Redirect to /auth/login
+        else Verification success
+            Middleware->>Middleware: Extract user payload
+            Middleware->>Route: Forward request + headers<br/>(x-turkey-user-id, x-turkey-user-email, etc.)
+            Route->>Route: Access user via headers
+            Route-->>Client: Render protected page
+        end
+    end
 ```
 
-</details>## Installation
+### Multi-App Token Architecture
+
+```mermaid
+graph TB
+    subgraph "User Authentication"
+        U[User Login]
+    end
+
+    subgraph "TurKey Server"
+        TS[Token Service]
+        JWKS[JWKS Endpoint<br/>ES256 Keys]
+    end
+
+    subgraph "Blog Application"
+        BC[Blog Client<br/>appId: blog-app]
+        BM[Blog Middleware]
+        BA[Blog API]
+    end
+
+    subgraph "Shop Application"
+        SC[Shop Client<br/>appId: shop-app]
+        SM[Shop Middleware]
+        SA[Shop API]
+    end
+
+    subgraph "Admin Application"
+        AC[Admin Client<br/>appId: admin-app]
+        AM[Admin Middleware]
+        AA[Admin API]
+    end
+
+    U --> BC
+    U --> SC
+    U --> AC
+
+    BC -->|login(appId: blog-app)| TS
+    SC -->|login(appId: shop-app)| TS
+    AC -->|login(appId: admin-app)| TS
+
+    TS -->|Token with aud: blog-app| BC
+    TS -->|Token with aud: shop-app| SC
+    TS -->|Token with aud: admin-app| AC
+
+    BC -->|Request with blog token| BM
+    SC -->|Request with shop token| SM
+    AC -->|Request with admin token| AM
+
+    BM -->|Verify with JWKS| JWKS
+    SM -->|Verify with JWKS| JWKS
+    AM -->|Verify with JWKS| JWKS
+
+    BM -.->|Reject shop/admin tokens<br/>aud mismatch| BM
+    SM -.->|Reject blog/admin tokens<br/>aud mismatch| SM
+    AM -.->|Reject blog/shop tokens<br/>aud mismatch| AM
+
+    BM -->|Valid blog token| BA
+    SM -->|Valid shop token| SA
+    AM -->|Valid admin token| AA
+
+    style TS fill:#e1f5ff
+    style JWKS fill:#e1f5ff
+    style BM fill:#fff4e6
+    style SM fill:#fff4e6
+    style AM fill:#fff4e6
+```
+
+### React Integration Architecture
+
+```mermaid
+graph TB
+    subgraph "React Application"
+        App[App Component]
+        AP[AuthProvider<br/>Context]
+        Login[Login Page]
+        Dashboard[Protected Page]
+        Hook[useTurkey Hook]
+    end
+
+    subgraph "TurKey SDK"
+        Client[TurKey Client]
+        Storage[Token Storage<br/>Cookie/LocalStorage]
+    end
+
+    subgraph "Auto-Refresh"
+        Timer[Refresh Timer]
+        Calc[Token Expiry<br/>Calculator]
+    end
+
+    App --> AP
+    AP --> Login
+    AP --> Dashboard
+    Dashboard --> Hook
+    Login --> Hook
+
+    Hook --> Client
+    Hook --> Storage
+
+    AP --> Timer
+    Timer --> Calc
+    Calc -->|5 min before expiry| Client
+    Client -->|refresh()| Storage
+
+    Client --> Storage
+
+    style AP fill:#e3f2fd
+    style Hook fill:#e8f5e9
+    style Timer fill:#fff3e0
+```
+
+### Edge Runtime Middleware (Next.js)
+
+````mermaid
+graph LR
+    subgraph "Next.js Application"
+        MW[middleware.ts<br/>Edge Runtime]
+        Route[Route Handler<br/>Node.js Runtime]
+    end
+
+    subgraph "Token Verification"
+        Extract[extractToken()<br/>Cookie/Header]
+        Verify[verifyJwt()<br/>jose library]
+        JWKS[JWKS Fetch<br/>Edge Compatible]
+    end
+
+    subgraph "Constraints"
+        C1[❌ No React imports]
+        C2[❌ No Node.js APIs]
+        C3[✅ jose library OK]
+        C4[✅ fetch API OK]
+    end
+
+    MW --> Extract
+    Extract --> Verify
+    Verify --> JWKS
+
+    MW -.->|Can't import| C1
+    MW -.->|Can't use| C2
+    MW -.->|Can use| C3
+    MW -.->|Can use| C4
+
+    Verify -->|Success| Route
+    Verify -->|Failure| Redirect[307 Redirect<br/>/auth/login]
+
+    Route -->|Access via| Headers[x-turkey-user-id<br/>x-turkey-user-email<br/>x-turkey-user-role]
+
+    style MW fill:#f3e5f5
+    style Verify fill:#e1f5ff
+    style C1 fill:#ffebee
+    style C2 fill:#ffebee
+    style C3 fill:#e8f5e9
+    style C4 fill:#e8f5e9
+```## Installation
 
 ```bash
 npm install @jimmyjames88/turkey-sdk
-```
+````
 
 ## Quick Start
 
@@ -682,97 +825,219 @@ const blogToken = await blogClient.login({ ... })
 const shopToken = await shopClient.login({ ... })
 ```
 
-## Server Middleware API
+## Server-Side JWT Verification
 
-### Zero-Configuration Setup
+**🔒 CRITICAL SECURITY REQUIREMENT:**
 
-The TurKey SDK provides drop-in middleware for server-side authentication with automatic environment configuration:
+**Client-side token validation is NOT secure for authorization!** Always use server-side verification for any security decisions.
 
-```bash
-# Environment Variables (Required)
-TURKEY_BASE_URL=https://your-turkey-server.com
+📖 **For comprehensive middleware implementation guidance, see [MIDDLEWARE-GUIDE.md](./MIDDLEWARE-GUIDE.md)**
 
-# Optional Configuration
-TURKEY_APP_ID=my-app
-NODE_ENV=development  # Enables enhanced logging
+### The Security Boundary
+
+```mermaid
+graph LR
+    subgraph "Client Side - NOT SECURE"
+        CT[Client Token<br/>Validation]
+        UI[UI Decisions Only]
+    end
+
+    subgraph "Server Side - SECURE"
+        SV[JWT Verification<br/>with JWKS]
+        Auth[Authorization<br/>Decisions]
+    end
+
+    CT -.->|❌ Don't trust| Auth
+    CT -->|✅ OK for| UI
+    SV -->|✅ Required for| Auth
+
+    style CT fill:#ffebee
+    style SV fill:#e8f5e9
+    style Auth fill:#e8f5e9
 ```
 
-**🔒 CRITICAL: Only server-side middleware should be used for authorization decisions!**
+### Server-Side Verification Methods
 
-### Quick Start
+#### Direct JWT Verification
 
 ```typescript
-import { turkeyAuth } from '@jimmyjames88/turkey-sdk/middleware'
-import express from 'express'
-
-const app = express()
-
-// Zero-config authentication - uses environment variables
-app.use('/api', turkeyAuth())
-
-// Your protected routes automatically have req.user
-app.get('/api/profile', (req, res) => {
-  res.json({
-    user: req.user, // ✅ Fully typed user object
-    message: `Hello ${req.user.email}!`,
-  })
-})
-```
-
-Example usage in Express:
-
-```ts
-import express from 'express'
 import { verifyJwt } from '@jimmyjames88/turkey-sdk'
 
 const app = express()
-const config = { baseUrl: process.env.TURKEY_BASE_URL }
 
 app.use(async (req, res, next) => {
   try {
-    const auth = req.headers.authorization || ''
-    if (!auth.startsWith('Bearer ')) return res.status(401).end()
-    const token = auth.slice(7)
+    const authHeader = req.headers.authorization || ''
+    if (!authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Missing token' })
+    }
+
+    const token = authHeader.slice(7)
 
     // ✅ This is the ONLY secure way to verify tokens
-    const payload = await verifyJwt(token, config)
-    ;(req as any).user = payload
+    const payload = await verifyJwt(token, {
+      baseUrl: process.env.TURKEY_BASE_URL!,
+      appId: process.env.TURKEY_APP_ID, // Optional: validates aud claim
+    })
+
+    req.user = payload // Attach verified user to request
     next()
-  } catch (err: any) {
-    res.status(401).json({ error: err.message })
+  } catch (err) {
+    res.status(401).json({ error: 'Invalid token' })
   }
 })
 ```
 
-**Why server-side verification matters:**
+#### Next.js Middleware (Edge Runtime)
 
-- Client-side verification can be bypassed by attackers
-- JWKS keys are fetched securely from the Turkey server
-- Proper app ID validation prevents cross-app token reuse
-- Token revocation and rotation are handled correctly
+For Next.js applications, middleware runs in the Edge Runtime with specific constraints:
 
-There are also example middleware files in `examples/middleware` for Express and Next.js.
+**Edge Runtime Limitations:**
 
-### Token Introspection & Revocation
+- ❌ Cannot import React components or client-side code
+- ❌ Cannot use Node.js-specific modules
+- ✅ Can use `jose` library for JWT verification
+- ✅ Can use `fetch` API for JWKS retrieval
 
-TurKey exposes introspection and revocation operations for server-side session management. The SDK provides helpers and client methods:
+```typescript
+// src/middleware.ts
+import { NextRequest, NextResponse } from 'next/server'
 
-- `client.introspect(token)` — returns token metadata (active, exp, scope, subject)
-- `client.revoke(token)` — revokes access or refresh tokens
+// Inline JWT verification for edge runtime compatibility
+async function verifyJwt(
+  token: string,
+  config: { baseUrl: string; appId?: string }
+) {
+  const { baseUrl, appId } = config
+  const jwksUrl = `${baseUrl}/.well-known/jwks.json`
 
-Server helper usage:
+  // Dynamic import for edge runtime
+  const { jwtVerify, createRemoteJWKSet } = await import('jose')
+  const JWKS = createRemoteJWKSet(new URL(jwksUrl))
 
-```ts
-import { introspectToken, revokeToken } from '@jimmyjames88/turkey-sdk'
+  const { payload } = await jwtVerify(token, JWKS, {
+    audience: appId,
+  })
 
-const config = { baseUrl: process.env.TURKEY_BASE_URL }
+  return payload as {
+    sub?: string
+    email?: string
+    role?: string
+    aud?: string
+  }
+}
 
-// Introspect
-const meta = await introspectToken(someToken, config)
+function extractToken(request: NextRequest): string | null {
+  // Try cookie first (browser apps)
+  const cookieToken = request.cookies.get('turkey_access_token')?.value
+  if (cookieToken) return cookieToken
 
-// Revoke
-await revokeToken(someRefreshToken, config)
+  // Try Authorization header (API clients)
+  const authHeader = request.headers.get('authorization')
+  if (authHeader?.startsWith('Bearer ')) {
+    return authHeader.slice(7)
+  }
+
+  return null
+}
+
+export async function middleware(request: NextRequest) {
+  const path = request.nextUrl.pathname
+
+  // Skip public routes
+  if (path.startsWith('/auth/') || path.startsWith('/_next/')) {
+    return NextResponse.next()
+  }
+
+  // Protect dashboard and API routes
+  if (path.startsWith('/dashboard') || path.startsWith('/api/')) {
+    const token = extractToken(request)
+
+    if (!token) {
+      if (path.startsWith('/api/')) {
+        return new NextResponse(
+          JSON.stringify({ error: 'Authentication required' }),
+          { status: 401, headers: { 'content-type': 'application/json' } }
+        )
+      }
+
+      const loginUrl = new URL('/auth/login', request.url)
+      loginUrl.searchParams.set('redirect', path)
+      return NextResponse.redirect(loginUrl)
+    }
+
+    try {
+      // Verify JWT with JWKS
+      const payload = await verifyJwt(token, {
+        baseUrl: process.env.TURKEY_BASE_URL!,
+        appId: process.env.TURKEY_APP_ID,
+      })
+
+      // Attach user data to request headers
+      const response = NextResponse.next()
+      response.headers.set('x-turkey-user-id', payload.sub || '')
+      response.headers.set('x-turkey-user-email', payload.email || '')
+      response.headers.set('x-turkey-user-role', payload.role || '')
+      response.headers.set('x-turkey-app-id', payload.aud || '')
+
+      return response
+    } catch (error) {
+      // Invalid token
+      if (path.startsWith('/api/')) {
+        return new NextResponse(
+          JSON.stringify({ error: 'Invalid or expired token' }),
+          { status: 401, headers: { 'content-type': 'application/json' } }
+        )
+      }
+
+      const loginUrl = new URL('/auth/login', request.url)
+      loginUrl.searchParams.set('redirect', path)
+      return NextResponse.redirect(loginUrl)
+    }
+  }
+
+  return NextResponse.next()
+}
+
+export const config = {
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+}
 ```
+
+**Accessing User Data in Route Handlers:**
+
+```typescript
+// app/api/profile/route.ts
+import { headers } from 'next/headers'
+
+export async function GET() {
+  const headersList = headers()
+  const userId = headersList.get('x-turkey-user-id')
+  const userEmail = headersList.get('x-turkey-user-email')
+  const userRole = headersList.get('x-turkey-user-role')
+
+  return Response.json({ userId, userEmail, userRole })
+}
+```
+
+**Environment Variables Required:**
+
+```bash
+# Server-side (for middleware and API routes)
+TURKEY_BASE_URL=http://localhost:3000
+TURKEY_APP_ID=my-app  # Optional: for aud claim validation
+
+# Client-side (for browser SDK usage)
+NEXT_PUBLIC_TURKEY_BASE_URL=http://localhost:3000
+NEXT_PUBLIC_TURKEY_AUDIENCE=my-app
+```
+
+**Important Notes:**
+
+1. Next.js route groups like `(protected)` don't appear in URLs
+2. Middleware matcher patterns must account for actual URL paths, not filesystem structure
+3. Environment variables without `NEXT_PUBLIC_` prefix are server-only
+4. Dev server must be restarted when changing environment variables
 
 ## Error Handling
 
