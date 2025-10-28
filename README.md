@@ -99,21 +99,22 @@ sequenceDiagram
     participant JWKS as JWKS Endpoint
     participant Route as Route Handler
 
-    Client->>Middleware: GET /dashboard (Cookie: turkey_access_token)
+    Client->>Middleware: GET /dashboard<br/>Cookie: turkey_access_token
     Middleware->>Middleware: Extract token from cookie/header
 
     alt No token found
-        Middleware-->>Client: 307 Redirect to /auth/login?redirect=/dashboard
+        Middleware-->>Client: 307 Redirect to<br/>/auth/login?redirect=/dashboard
     else Token found
         Middleware->>JWKS: GET /.well-known/jwks.json
-        JWKS-->>Middleware: Public keys (ES256)
-        Middleware->>Middleware: jwtVerify(token, JWKS, { audience: appId })
+        JWKS-->>Middleware: Public keys ES256
+        Middleware->>Middleware: jwtVerify token, JWKS, audience
 
         alt Verification failed
             Middleware-->>Client: 307 Redirect to /auth/login
         else Verification success
             Middleware->>Middleware: Extract user payload
-            Middleware->>Route: Forward request + headers<br/>(x-turkey-user-id, x-turkey-user-email, etc.)
+            Note over Middleware,Route: Attach headers:<br/>x-turkey-user-id,<br/>x-turkey-user-email, etc.
+            Middleware->>Route: Forward request + headers
             Route->>Route: Access user via headers
             Route-->>Client: Render protected page
         end
@@ -124,29 +125,29 @@ sequenceDiagram
 
 ```mermaid
 graph TB
-    subgraph "User Authentication"
+    subgraph UserAuth["User Authentication"]
         U[User Login]
     end
 
-    subgraph "TurKey Server"
+    subgraph TurkeyServer["TurKey Server"]
         TS[Token Service]
-        JWKS[JWKS Endpoint<br/>ES256 Keys]
+        JWKS["JWKS Endpoint<br/>ES256 Keys"]
     end
 
-    subgraph "Blog Application"
-        BC[Blog Client<br/>appId: blog-app]
+    subgraph BlogApp["Blog Application"]
+        BC["Blog Client<br/>appId: blog-app"]
         BM[Blog Middleware]
         BA[Blog API]
     end
 
-    subgraph "Shop Application"
-        SC[Shop Client<br/>appId: shop-app]
+    subgraph ShopApp["Shop Application"]
+        SC["Shop Client<br/>appId: shop-app"]
         SM[Shop Middleware]
         SA[Shop API]
     end
 
-    subgraph "Admin Application"
-        AC[Admin Client<br/>appId: admin-app]
+    subgraph AdminApp["Admin Application"]
+        AC["Admin Client<br/>appId: admin-app"]
         AM[Admin Middleware]
         AA[Admin API]
     end
@@ -155,29 +156,29 @@ graph TB
     U --> SC
     U --> AC
 
-    BC -->|login(appId: blog-app)| TS
-    SC -->|login(appId: shop-app)| TS
-    AC -->|login(appId: admin-app)| TS
+    BC -->|"login(appId: blog-app)"| TS
+    SC -->|"login(appId: shop-app)"| TS
+    AC -->|"login(appId: admin-app)"| TS
 
-    TS -->|Token with aud: blog-app| BC
-    TS -->|Token with aud: shop-app| SC
-    TS -->|Token with aud: admin-app| AC
+    TS -->|"Token with aud: blog-app"| BC
+    TS -->|"Token with aud: shop-app"| SC
+    TS -->|"Token with aud: admin-app"| AC
 
-    BC -->|Request with blog token| BM
-    SC -->|Request with shop token| SM
-    AC -->|Request with admin token| AM
+    BC -->|"Request with blog token"| BM
+    SC -->|"Request with shop token"| SM
+    AC -->|"Request with admin token"| AM
 
-    BM -->|Verify with JWKS| JWKS
-    SM -->|Verify with JWKS| JWKS
-    AM -->|Verify with JWKS| JWKS
+    BM -->|"Verify with JWKS"| JWKS
+    SM -->|"Verify with JWKS"| JWKS
+    AM -->|"Verify with JWKS"| JWKS
 
-    BM -.->|Reject shop/admin tokens<br/>aud mismatch| BM
-    SM -.->|Reject blog/admin tokens<br/>aud mismatch| SM
-    AM -.->|Reject blog/shop tokens<br/>aud mismatch| AM
+    BM -.->|"Reject shop/admin tokens<br/>aud mismatch"| BM
+    SM -.->|"Reject blog/admin tokens<br/>aud mismatch"| SM
+    AM -.->|"Reject blog/shop tokens<br/>aud mismatch"| AM
 
-    BM -->|Valid blog token| BA
-    SM -->|Valid shop token| SA
-    AM -->|Valid admin token| AA
+    BM -->|"Valid blog token"| BA
+    SM -->|"Valid shop token"| SA
+    AM -->|"Valid admin token"| AA
 
     style TS fill:#e1f5ff
     style JWKS fill:#e1f5ff
@@ -190,22 +191,22 @@ graph TB
 
 ```mermaid
 graph TB
-    subgraph "React Application"
+    subgraph ReactApp["React Application"]
         App[App Component]
-        AP[AuthProvider<br/>Context]
+        AP["AuthProvider<br/>Context"]
         Login[Login Page]
         Dashboard[Protected Page]
         Hook[useTurkey Hook]
     end
 
-    subgraph "TurKey SDK"
+    subgraph SDK["TurKey SDK"]
         Client[TurKey Client]
-        Storage[Token Storage<br/>Cookie/LocalStorage]
+        Storage["Token Storage<br/>Cookie/LocalStorage"]
     end
 
-    subgraph "Auto-Refresh"
+    subgraph AutoRefresh["Auto-Refresh"]
         Timer[Refresh Timer]
-        Calc[Token Expiry<br/>Calculator]
+        Calc["Token Expiry<br/>Calculator"]
     end
 
     App --> AP
@@ -219,8 +220,8 @@ graph TB
 
     AP --> Timer
     Timer --> Calc
-    Calc -->|5 min before expiry| Client
-    Client -->|refresh()| Storage
+    Calc -->|"5 min before expiry"| Client
+    Client -->|"refresh()"| Storage
 
     Client --> Storage
 
@@ -233,37 +234,37 @@ graph TB
 
 ````mermaid
 graph LR
-    subgraph "Next.js Application"
-        MW[middleware.ts<br/>Edge Runtime]
-        Route[Route Handler<br/>Node.js Runtime]
+    subgraph NextJS["Next.js Application"]
+        MW["middleware.ts<br/>Edge Runtime"]
+        Route["Route Handler<br/>Node.js Runtime"]
     end
 
-    subgraph "Token Verification"
-        Extract[extractToken()<br/>Cookie/Header]
-        Verify[verifyJwt()<br/>jose library]
-        JWKS[JWKS Fetch<br/>Edge Compatible]
+    subgraph TokenVerification["Token Verification"]
+        Extract["extractToken()<br/>Cookie/Header"]
+        Verify["verifyJwt()<br/>jose library"]
+        JWKS["JWKS Fetch<br/>Edge Compatible"]
     end
 
-    subgraph "Constraints"
-        C1[❌ No React imports]
-        C2[❌ No Node.js APIs]
-        C3[✅ jose library OK]
-        C4[✅ fetch API OK]
+    subgraph Constraints["Constraints"]
+        C1["❌ No React imports"]
+        C2["❌ No Node.js APIs"]
+        C3["✅ jose library OK"]
+        C4["✅ fetch API OK"]
     end
 
     MW --> Extract
     Extract --> Verify
     Verify --> JWKS
 
-    MW -.->|Can't import| C1
-    MW -.->|Can't use| C2
-    MW -.->|Can use| C3
-    MW -.->|Can use| C4
+    MW -.->|"Can't import"| C1
+    MW -.->|"Can't use"| C2
+    MW -.->|"Can use"| C3
+    MW -.->|"Can use"| C4
 
     Verify -->|Success| Route
-    Verify -->|Failure| Redirect[307 Redirect<br/>/auth/login]
+    Verify -->|Failure| Redirect["307 Redirect<br/>/auth/login"]
 
-    Route -->|Access via| Headers[x-turkey-user-id<br/>x-turkey-user-email<br/>x-turkey-user-role]
+    Route -->|"Access via"| Headers["x-turkey-user-id<br/>x-turkey-user-email<br/>x-turkey-user-role"]
 
     style MW fill:#f3e5f5
     style Verify fill:#e1f5ff
@@ -837,19 +838,19 @@ const shopToken = await shopClient.login({ ... })
 
 ```mermaid
 graph LR
-    subgraph "Client Side - NOT SECURE"
-        CT[Client Token<br/>Validation]
+    subgraph ClientSide["Client Side - NOT SECURE"]
+        CT["Client Token<br/>Validation"]
         UI[UI Decisions Only]
     end
 
-    subgraph "Server Side - SECURE"
-        SV[JWT Verification<br/>with JWKS]
-        Auth[Authorization<br/>Decisions]
+    subgraph ServerSide["Server Side - SECURE"]
+        SV["JWT Verification<br/>with JWKS"]
+        Auth["Authorization<br/>Decisions"]
     end
 
-    CT -.->|❌ Don't trust| Auth
-    CT -->|✅ OK for| UI
-    SV -->|✅ Required for| Auth
+    CT -.->|"❌ Don't trust"| Auth
+    CT -->|"✅ OK for"| UI
+    SV -->|"✅ Required for"| Auth
 
     style CT fill:#ffebee
     style SV fill:#e8f5e9

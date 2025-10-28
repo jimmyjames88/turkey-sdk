@@ -20,20 +20,20 @@ This guide covers implementing secure JWT authentication middleware across diffe
 
 ```mermaid
 graph LR
-    subgraph "❌ INSECURE"
+    subgraph Insecure["❌ INSECURE"]
         C1[Client validates token]
         C2[Client makes decision]
         C3[Attacker can bypass]
     end
 
-    subgraph "✅ SECURE"
+    subgraph Secure["✅ SECURE"]
         S1[Server verifies token]
         S2[Server makes decision]
         S3[JWKS validation]
     end
 
     C1 --> C2
-    C2 -.->|Can be bypassed| C3
+    C2 -.->|"Can be bypassed"| C3
 
     S1 --> S2
     S2 --> S3
@@ -425,16 +425,16 @@ const payload = await jwtVerify(token, JWKS, {
 
 ```mermaid
 graph TB
-    subgraph "Blog Application"
-        B1[Blog Login<br/>appId: blog-app]
-        B2[Blog Token<br/>aud: blog-app]
-        B3[Blog Middleware<br/>Expects: blog-app]
+    subgraph BlogApp["Blog Application"]
+        B1["Blog Login<br/>appId: blog-app"]
+        B2["Blog Token<br/>aud: blog-app"]
+        B3["Blog Middleware<br/>Expects: blog-app"]
     end
 
-    subgraph "Shop Application"
-        S1[Shop Login<br/>appId: shop-app]
-        S2[Shop Token<br/>aud: shop-app]
-        S3[Shop Middleware<br/>Expects: shop-app]
+    subgraph ShopApp["Shop Application"]
+        S1["Shop Login<br/>appId: shop-app"]
+        S2["Shop Token<br/>aud: shop-app"]
+        S3["Shop Middleware<br/>Expects: shop-app"]
     end
 
     B1 --> B2
@@ -442,8 +442,8 @@ graph TB
     S1 --> S2
     S2 --> S3
 
-    B2 -.->|❌ Rejected<br/>aud mismatch| S3
-    S2 -.->|❌ Rejected<br/>aud mismatch| B3
+    B2 -.->|"❌ Rejected<br/>aud mismatch"| S3
+    S2 -.->|"❌ Rejected<br/>aud mismatch"| B3
 
     style B3 fill:#e8f5e9
     style S3 fill:#e8f5e9
