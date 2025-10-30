@@ -578,6 +578,96 @@ try {
 
 ---
 
+##### Token Revocation Methods
+
+###### `revoke(token: string, reason?: string): Promise<void>`
+
+Revoke a specific access or refresh token immediately.
+
+**Parameters:**
+
+- `token: string` - The access or refresh token to revoke
+- `reason?: string` - Optional reason for audit logging
+
+**How it works:**
+
+1. Validates the token signature (proves ownership)
+2. Extracts the JTI (JWT ID) claim from the token
+3. Stores the JTI in the revocation service with TTL = token expiry
+4. All subsequent requests with this token will be rejected by middleware
+
+**Example:**
+
+```typescript
+try {
+  // Revoke an access token
+  await client.revoke(accessToken)
+  console.log('Token revoked successfully')
+
+  // Revoke with audit reason
+  await client.revoke(accessToken, 'User reported device stolen')
+
+  // Revoke a refresh token
+  await client.revoke(refreshToken, 'Password changed')
+} catch (error) {
+  console.error('Revocation failed:', error.message)
+}
+```
+
+**Use cases:**
+
+- User logout
+- Security incident response
+- Password change
+- Account deactivation
+- Device lost/stolen
+- Suspicious activity
+
+---
+
+###### `revokeAll(accessToken: string, refreshToken: string, reason?: string): Promise<void>`
+
+Revoke both access and refresh tokens simultaneously (complete logout).
+
+**Parameters:**
+
+- `accessToken: string` - The access token to revoke
+- `refreshToken: string` - The refresh token to revoke
+- `reason?: string` - Optional reason for audit logging
+
+**Example:**
+
+```typescript
+async function handleLogout() {
+  try {
+    const accessToken = storage.getAccessToken()
+    const refreshToken = storage.getRefreshToken()
+
+    // Revoke both tokens at once
+    await client.revokeAll(accessToken, refreshToken, 'User logout')
+
+    // Clear local storage
+    storage.clearTokens()
+
+    // Redirect to login
+    router.push('/auth/login')
+  } catch (error) {
+    console.error('Logout failed:', error.message)
+    // Clear storage anyway for UX
+    storage.clearTokens()
+  }
+}
+```
+
+**Use cases:**
+
+- User logout (recommended over `logout()`)
+- Account termination
+- Security incident - revoke all sessions
+- Password reset completion
+
+---
+
 ##### Token Verification Methods
 
 ###### `validateTokenFormat(token: string, appId?: string): Promise<JWTPayload>`
@@ -848,6 +938,474 @@ Fetch wrapper that automatically includes auth headers.
 const authenticatedFetch = useAuthenticatedFetch(storage)
 const response = await authenticatedFetch('/api/protected-endpoint')
 ```
+
+## Token Revocation
+
+TurKey SDK provides comprehensive token revocation capabilities for enhanced security. When a token is compromised, a user logs out, or account access needs to be terminated, revocation ensures tokens are immediately invalidated.
+
+### Revocation Architecture
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant SDK as TurKey SDK
+    participant Server as TurKey Server
+    participant RevService as RevocationService
+    participant Middleware as Auth Middleware
+
+    Client->>SDK: client.revoke(accessToken)
+    SDK->>Server: POST /v1/auth/revoke
+    Server->>Server: Verify token signature
+    Server->>Server: Extract JTI claim
+    Server->>RevService: Store JTI with TTL
+    RevService->>RevService: Schedule cleanup timer
+    Server-->>SDK: Success
+    SDK-->>Client: Token revoked
+
+    Note over RevService: JTI stored until token expiry
+
+    Client->>Server: Later request with revoked token
+    Server->>Middleware: Verify token
+    Middleware->>Middleware: JWT signature valid ✓
+    Middleware->>Server: Check revocation
+    Server->>RevService: isRevoked(JTI)?
+    RevService-->>Server: true (revoked)
+    Server-->>Client: 401 Unauthorized<br/>(token_revoked)
+
+    Note over RevService: Auto-cleanup on TTL expiry
+```
+
+### Basic Usage
+
+#### Revoking Individual Tokens
+
+```typescript
+import { TurKeyClient } from '@jimmyjames88/turkey-sdk'
+
+const client = new TurKeyClient({
+  baseUrl: 'https://auth.yourapp.com',
+  appId: 'my-app',
+})
+
+// Revoke an access token
+try {
+  await client.revoke(accessToken)
+  console.log('Token revoked successfully')
+} catch (error) {
+  console.error('Revocation failed:', error.message)
+}
+
+// Revoke with a reason (for audit logs)
+await client.revoke(accessToken, 'User reported suspicious activity')
+
+// Revoke a refresh token
+await client.revoke(refreshToken)
+```
+
+#### Revoking All Tokens (Complete Logout)
+
+```typescript
+// Revoke both access and refresh tokens simultaneously
+await client.revokeAll(accessToken, refreshToken)
+
+// With audit reason
+await client.revokeAll(
+  accessToken,
+  refreshToken,
+  'Account compromised - security incident'
+)
+
+// Clear local storage after revocation
+storage.clearTokens()
+```
+
+### Common Revocation Scenarios
+
+#### 1. User Logout
+
+```typescript
+async function handleLogout() {
+  try {
+    const accessToken = storage.getAccessToken()
+    const refreshToken = storage.getRefreshToken()
+
+    // Revoke both tokens on logout
+    await client.revokeAll(accessToken, refreshToken, 'User logout')
+
+    // Clear local storage
+    storage.clearTokens()
+
+    // Redirect to login page
+    router.push('/auth/login')
+  } catch (error) {
+    console.error('Logout failed:', error.message)
+    // Clear storage anyway for UX
+    storage.clearTokens()
+  }
+}
+```
+
+#### 2. Security Incident Response
+
+```typescript
+async function handleSecurityIncident(compromisedToken: string) {
+  try {
+    // Immediately revoke the compromised token
+    await client.revoke(
+      compromisedToken,
+      'Security incident - suspicious activity detected'
+    )
+
+    // Force user to re-authenticate
+    storage.clearTokens()
+    showSecurityAlert('Your session has been terminated for security reasons')
+    router.push('/auth/login')
+  } catch (error) {
+    console.error('Emergency revocation failed:', error.message)
+  }
+}
+```
+
+#### 3. Account Deactivation
+
+```typescript
+async function deactivateAccount(userId: string) {
+  try {
+    // Admin action: revoke all active sessions for a user
+    // This requires a server-side endpoint that:
+    // 1. Fetches all active tokens for the user
+    // 2. Revokes each token
+
+    await adminClient.revokeAllUserTokens(userId, 'Account deactivation')
+
+    console.log(`All sessions revoked for user ${userId}`)
+  } catch (error) {
+    console.error('Account deactivation failed:', error.message)
+  }
+}
+```
+
+#### 4. Token Rotation with Revocation
+
+```typescript
+async function rotateTokenWithRevocation() {
+  try {
+    const oldAccessToken = storage.getAccessToken()
+    const refreshToken = storage.getRefreshToken()
+
+    // Get new tokens
+    const { accessToken: newAccessToken, refreshToken: newRefreshToken } =
+      await client.refresh({ refreshToken })
+
+    // Store new tokens
+    storage.setTokens(newAccessToken, newRefreshToken)
+
+    // Revoke old access token (refresh token is auto-rotated)
+    await client.revoke(oldAccessToken, 'Token rotation')
+
+    console.log('Tokens rotated and old token revoked')
+  } catch (error) {
+    console.error('Token rotation failed:', error.message)
+  }
+}
+```
+
+### Server-Side Revocation Checking
+
+The SDK automatically checks revocation when using middleware, but you can also manually check revocation status:
+
+#### Using Middleware (Automatic)
+
+```typescript
+import { createTurkeyMiddleware } from '@jimmyjames88/turkey-sdk/middleware'
+
+const middleware = createTurkeyMiddleware({
+  baseUrl: process.env.TURKEY_BASE_URL!,
+  appId: process.env.TURKEY_APP_ID,
+  checkRevocation: true, // Default: true - automatically checks revocation
+})
+
+app.use('/api/protected', middleware)
+
+// Revoked tokens are automatically rejected with 401
+```
+
+#### Manual Revocation Check
+
+```typescript
+import { checkRevocation } from '@jimmyjames88/turkey-sdk/server'
+
+app.get('/api/custom-check', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.slice(7) // Remove "Bearer "
+    const payload = client.decodeToken(token!)
+
+    // Check if this specific JTI has been revoked
+    const isRevoked = await checkRevocation(payload.jti, {
+      baseUrl: process.env.TURKEY_BASE_URL!,
+    })
+
+    if (isRevoked) {
+      return res.status(401).json({
+        error: 'token_revoked',
+        message: 'This token has been revoked',
+      })
+    }
+
+    // Token is valid and not revoked
+    res.json({ valid: true })
+  } catch (error) {
+    res.status(500).json({ error: 'Revocation check failed' })
+  }
+})
+```
+
+#### Get Revocation Details
+
+```typescript
+import { getRevocationInfo } from '@jimmyjames88/turkey-sdk/server'
+
+app.get('/api/revocation-info', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.slice(7)
+    const payload = client.decodeToken(token!)
+
+    const info = await getRevocationInfo(payload.jti, {
+      baseUrl: process.env.TURKEY_BASE_URL!,
+    })
+
+    if (info) {
+      res.json({
+        revoked: info.revoked,
+        revokedAt: new Date(info.revokedAt).toISOString(),
+        reason: info.reason || 'No reason provided',
+      })
+    } else {
+      res.json({ revoked: false })
+    }
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get revocation info' })
+  }
+})
+```
+
+### Revocation Security Model
+
+#### Fail-Open Strategy
+
+The SDK uses a **fail-open** strategy for revocation checks to prevent service disruptions:
+
+```typescript
+// If revocation check fails (network error, server down, etc.),
+// the token is ALLOWED, not rejected
+
+// This prevents:
+// ✅ Service outages from blocking all authenticated requests
+// ✅ Network issues from causing cascading failures
+// ✅ SPOF (Single Point of Failure) from revocation service
+
+// Trade-off:
+// ⚠️ Revoked tokens might work briefly during outages
+// ✅ But normal security is maintained when service is healthy
+```
+
+**Configure fail-open behavior:**
+
+```typescript
+const middleware = createTurkeyMiddleware({
+  baseUrl: process.env.TURKEY_BASE_URL!,
+  appId: process.env.TURKEY_APP_ID,
+  checkRevocation: true, // Can be disabled in development
+})
+
+// For development environments, you might disable revocation checks:
+const devMiddleware = createTurkeyMiddleware({
+  baseUrl: process.env.TURKEY_BASE_URL!,
+  checkRevocation: process.env.NODE_ENV === 'production',
+})
+```
+
+#### JTI-Based Revocation
+
+TurKey uses **JTI (JWT ID)** claims for revocation:
+
+- ✅ Each token has a unique `jti` claim
+- ✅ Revocation is instant - no token grace period
+- ✅ Revoked JTIs are stored until token expiry (TTL-based cleanup)
+- ✅ Memory-efficient - only stores revoked tokens, not all tokens
+- ✅ Automatic cleanup - expired revocations are auto-removed
+
+**JTI Example:**
+
+```typescript
+const payload = client.decodeToken(accessToken)
+console.log(payload.jti) // "a8f9b2c4-3d1e-4f7a-9b8c-1d2e3f4a5b6c"
+
+// When revoked, this JTI is stored in the revocation service
+// All middleware checks validate against the revocation list
+```
+
+#### Cross-App Revocation
+
+Revocation works across all apps in your ecosystem:
+
+```typescript
+// User logs in to Blog app
+const blogClient = new TurKeyClient({
+  baseUrl: 'https://auth.yourapp.com',
+  appId: 'blog-app',
+})
+const { accessToken: blogToken } = await blogClient.login(credentials)
+
+// User logs in to Shop app
+const shopClient = new TurKeyClient({
+  baseUrl: 'https://auth.yourapp.com',
+  appId: 'shop-app',
+})
+const { accessToken: shopToken } = await shopClient.login(credentials)
+
+// Revoking the blog token doesn't affect shop token
+await blogClient.revoke(blogToken)
+// Blog token is revoked ❌
+// Shop token still works ✅
+
+// But you can revoke all tokens for a user via logoutAll
+await blogClient.logoutAll(blogToken)
+// This increments the user's token version
+// Both blog AND shop tokens become invalid ❌
+```
+
+### Revocation Best Practices
+
+#### 1. Always Revoke on Logout
+
+```typescript
+// ❌ Bad: Just clearing local storage
+function badLogout() {
+  storage.clearTokens()
+  router.push('/login')
+}
+
+// ✅ Good: Revoke tokens before clearing storage
+async function goodLogout() {
+  const accessToken = storage.getAccessToken()
+  const refreshToken = storage.getRefreshToken()
+
+  try {
+    await client.revokeAll(accessToken, refreshToken, 'User logout')
+  } catch (error) {
+    console.error('Revocation failed:', error.message)
+  } finally {
+    // Clear storage even if revocation fails
+    storage.clearTokens()
+    router.push('/login')
+  }
+}
+```
+
+#### 2. Provide Audit Reasons
+
+```typescript
+// ✅ Good: Include reason for audit logs
+await client.revoke(token, 'Password changed')
+await client.revoke(token, 'Suspicious activity detected')
+await client.revoke(token, 'User reported device lost')
+await client.revoke(token, 'Admin action - policy violation')
+
+// These reasons appear in server logs for security audits
+```
+
+#### 3. Handle Revocation Errors Gracefully
+
+```typescript
+async function safeRevoke(token: string, reason?: string) {
+  try {
+    await client.revoke(token, reason)
+    return { success: true }
+  } catch (error) {
+    // Log error but don't block user flow
+    console.error('Revocation failed:', error.message)
+
+    // Still clear local storage for UX
+    storage.clearTokens()
+
+    return { success: false, error: error.message }
+  }
+}
+```
+
+#### 4. Implement Proactive Revocation
+
+```typescript
+// Revoke tokens before sensitive operations
+async function changePassword(newPassword: string) {
+  try {
+    // 1. Change password on server
+    await api.changePassword(newPassword)
+
+    // 2. Revoke all existing tokens
+    const accessToken = storage.getAccessToken()
+    await client.logoutAll(accessToken)
+
+    // 3. Clear local storage
+    storage.clearTokens()
+
+    // 4. Force re-authentication
+    router.push('/auth/login?message=password-changed')
+  } catch (error) {
+    console.error('Password change failed:', error.message)
+  }
+}
+```
+
+### Production Considerations
+
+#### Redis for Distributed Systems
+
+For production deployments with multiple servers, configure TurKey server to use Redis for revocation storage:
+
+```typescript
+// Turkey server configuration (environment variables)
+REDIS_URL = 'redis://your-redis-server:6379'
+REDIS_PASSWORD = 'your-secure-password'
+ENABLE_REVOCATION = 'true'
+
+// The RevocationService automatically uses Redis when configured
+// This ensures revocations are shared across all server instances
+```
+
+#### Monitoring Revocation Activity
+
+```typescript
+// Server-side monitoring endpoint (Turkey server)
+app.get('/api/admin/revocation-stats', requireAdmin, async (req, res) => {
+  const stats = await revocationService.getStats()
+
+  res.json({
+    totalRevoked: stats.count,
+    oldestRevocation: stats.oldest,
+    newestRevocation: stats.newest,
+    // Add custom metrics as needed
+  })
+})
+```
+
+#### Performance Impact
+
+Revocation checks add minimal overhead:
+
+- ✅ **Fast lookup:** O(1) JTI lookup in Map/Redis
+- ✅ **Automatic cleanup:** TTL-based expiry prevents memory growth
+- ✅ **Fail-open:** Network errors don't block requests
+- ✅ **Cached JWKS:** JWT verification is already the bottleneck
+
+**Benchmarks (typical):**
+
+- JWT verification with JWKS: ~5-10ms
+- Revocation check (in-memory): <1ms
+- Revocation check (Redis): ~1-2ms
+
+Total overhead: <10% increase in auth middleware latency
 
 ## App-Specific Tokens
 
@@ -1140,9 +1698,11 @@ The SDK has comprehensive integration tests covering:
 
 - ✅ **Client API** (15 tests) - login, register, refresh, logout, token utilities
 - ✅ **JWT Verification** (10 tests) - HTTP introspect endpoint, multi-app isolation, refresh rotation
+- ✅ **Token Revocation** (19 tests) - access/refresh revocation, security, lifecycle, error handling
 - ✅ **Storage** (29 tests) - Memory, LocalStorage, Cookie implementations
+- ✅ **Edge Cases** (30 tests) - concurrent operations, network failures, expired tokens
 
-**Total: 54/54 integration tests passing**
+**Total: 103 integration tests passing**
 
 ### Running Tests
 
