@@ -57,6 +57,8 @@ export type {
   User,
   JWTPayload,
   TurKeyError,
+  IntrospectionResult,
+  ErrorDetail,
 } from './types'
 
 export { TurKeyAuthError } from './types'

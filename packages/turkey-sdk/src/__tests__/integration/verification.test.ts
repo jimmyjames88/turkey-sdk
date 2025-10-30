@@ -39,10 +39,11 @@ describe('JWT Verification Integration (HTTP)', () => {
       expect(result.active).toBe(true)
       expect(result.type).toBe('access')
       expect(result).toHaveProperty('payload')
+      expect(result.payload).toBeDefined()
       expect(result.payload).toHaveProperty('sub')
       expect(result.payload).toHaveProperty('email')
       expect(result.payload).toHaveProperty('aud')
-      expect(result.payload.aud).toBe(INTEGRATION_CONFIG.appId)
+      expect(result.payload?.aud).toBe(INTEGRATION_CONFIG.appId)
     })
 
     it('should validate refresh token via introspect endpoint', async () => {
@@ -89,7 +90,7 @@ describe('JWT Verification Integration (HTTP)', () => {
       const result = await client.introspect(validAccessToken)
 
       expect(result.active).toBe(true)
-      expect(result.payload.aud).toBe(INTEGRATION_CONFIG.appId)
+      expect(result.payload?.aud).toBe(INTEGRATION_CONFIG.appId)
     })
 
     it('should create app-specific tokens for different appIds', async () => {
@@ -109,10 +110,10 @@ describe('JWT Verification Integration (HTTP)', () => {
       const result = await client2.introspect(response.accessToken)
 
       expect(result.active).toBe(true)
-      expect(result.payload.aud).toBe(INTEGRATION_CONFIG.appId2)
+      expect(result.payload?.aud).toBe(INTEGRATION_CONFIG.appId2)
 
       // Verify it's different from first app's token audience
-      expect(result.payload.aud).not.toBe(INTEGRATION_CONFIG.appId)
+      expect(result.payload?.aud).not.toBe(INTEGRATION_CONFIG.appId)
     })
   })
 

@@ -61,32 +61,38 @@ export interface JWTPayload {
   exp: number
 }
 
+export interface ErrorDetail {
+  field: string
+  message: string
+  code: string
+}
+
+export interface IntrospectionResult {
+  active: boolean
+  type?: 'access' | 'refresh'
+  payload?: JWTPayload
+  expiresAt?: string
+  userId?: string
+}
+
 export interface TurKeyError {
   error: string
   message: string
   timestamp: string
   path: string
-  details?: Array<{
-    field: string
-    message: string
-    code: string
-  }>
+  details?: ErrorDetail[]
 }
 
 export class TurKeyAuthError extends Error {
   public readonly code: string
   public readonly statusCode: number
-  public readonly details?: Array<{
-    field: string
-    message: string
-    code: string
-  }>
+  public readonly details?: ErrorDetail[]
 
   constructor(
     message: string,
     code: string,
     statusCode: number,
-    details?: any[]
+    details?: ErrorDetail[]
   ) {
     super(message)
     this.name = 'TurKeyAuthError'

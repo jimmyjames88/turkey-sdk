@@ -7,6 +7,7 @@ import type {
   TokenPair,
   TurKeyError,
   User,
+  IntrospectionResult,
 } from './types'
 import { TurKeyAuthError } from './types'
 import { TokenManager } from './token-manager'
@@ -162,11 +163,14 @@ export class TurKeyClient {
   /**
    * Introspect an access or refresh token server-side
    */
-  async introspect(token: string) {
-    const response = await this.request<{ data: any }>('/v1/auth/introspect', {
-      method: 'POST',
-      body: JSON.stringify({ token }),
-    })
+  async introspect(token: string): Promise<IntrospectionResult> {
+    const response = await this.request<{ data: IntrospectionResult }>(
+      '/v1/auth/introspect',
+      {
+        method: 'POST',
+        body: JSON.stringify({ token }),
+      }
+    )
     return response.data
   }
 
