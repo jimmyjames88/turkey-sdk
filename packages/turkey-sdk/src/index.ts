@@ -3,6 +3,7 @@ export { TurKeyClient } from './client'
 export { TokenManager } from './token-manager'
 export { verifyJwt } from './server/verify'
 export { introspectToken, revokeToken } from './server/introspect'
+export { checkRevocation, getRevocationInfo } from './server/revocation'
 
 // Middleware (server-side)
 export {
@@ -60,6 +61,8 @@ export type {
   IntrospectionResult,
   ErrorDetail,
 } from './types'
+
+export type { RevocationCheckResult } from './server/revocation'
 
 export { TurKeyAuthError } from './types'
 

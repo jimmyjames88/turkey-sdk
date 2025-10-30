@@ -176,12 +176,31 @@ export class TurKeyClient {
 
   /**
    * Revoke a token (access or refresh)
+   * @param token - The token to revoke
+   * @param reason - Optional reason for revocation (for audit logs)
    */
-  async revoke(token: string) {
+  async revoke(token: string, reason?: string): Promise<void> {
     await this.request('/v1/auth/revoke', {
       method: 'POST',
-      body: JSON.stringify({ token }),
+      body: JSON.stringify({ token, reason }),
     })
+  }
+
+  /**
+   * Revoke both access and refresh tokens (complete logout with revocation)
+   * This is more secure than regular logout as it ensures tokens cannot be used even if intercepted
+   * @param accessToken - Current access token
+   * @param refreshToken - Current refresh token
+   * @param reason - Optional reason for revocation
+   */
+  async revokeAll(
+    accessToken: string,
+    refreshToken: string,
+    reason?: string
+  ): Promise<void> {
+    // Revoke both tokens
+    await this.revoke(accessToken, reason || 'User logout')
+    await this.revoke(refreshToken, reason || 'User logout')
   }
 
   /**
