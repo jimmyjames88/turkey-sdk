@@ -1,4 +1,5 @@
 ignored/
+.github/copilot-instructions.md
 
 # Dependencies
 node_modules/
