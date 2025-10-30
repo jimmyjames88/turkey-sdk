@@ -58,6 +58,7 @@ export interface TurKeyMiddlewareConfig {
   cookieName?: string
   onError?: (error: Error, req: any, res: any) => void | Promise<void>
   development?: boolean
+  checkRevocation?: boolean // Default: true - check if tokens have been revoked
 }
 
 /**

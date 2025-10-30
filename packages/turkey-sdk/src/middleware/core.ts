@@ -1,4 +1,5 @@
 import { verifyJwt } from '../server/verify'
+import { checkRevocation } from '../server/revocation'
 import type {
   TurKeyMiddlewareConfig,
   TurKeyEnvironment,
@@ -137,6 +138,7 @@ export function createTurkeyMiddleware(
     requireAuth: userConfig.requireAuth !== false, // Default to true
     cookieName: userConfig.cookieName || 'turkey_access_token',
     development: userConfig.development ?? envConfig.development ?? false,
+    checkRevocation: userConfig.checkRevocation !== false, // Default to true
     onError:
       userConfig.onError || createDefaultErrorHandler(envConfig.development),
   }
@@ -179,6 +181,18 @@ export function createTurkeyMiddleware(
         baseUrl: config.baseUrl,
         appId: config.appId,
       })) as TurKeyPayload
+
+      // Check if token has been revoked (if jti present)
+      if (payload.jti && config.checkRevocation !== false) {
+        const isRevoked = await checkRevocation(payload.jti, {
+          baseUrl: config.baseUrl,
+        })
+
+        if (isRevoked) {
+          const error = new Error('Token has been revoked')
+          return config.onError(error, req, res)
+        }
+      }
 
       // Attach user data to request
       const user = extractUser(payload)
