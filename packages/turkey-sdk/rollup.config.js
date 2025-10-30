@@ -1,9 +1,10 @@
 import typescript from '@rollup/plugin-typescript'
 import resolve from '@rollup/plugin-node-resolve'
 import commonjs from '@rollup/plugin-commonjs'
+import dts from 'rollup-plugin-dts'
 
 export default [
-  // ESM build
+  // Main ESM build
   {
     input: 'src/index.ts',
     output: {
@@ -17,13 +18,12 @@ export default [
       commonjs(),
       typescript({
         tsconfig: './tsconfig.json',
-        declaration: true,
-        declarationDir: './dist',
+        declaration: false,
       }),
     ],
     external: ['jose', 'js-cookie', 'react', 'react/jsx-runtime'],
   },
-  // CommonJS build
+  // Main CommonJS build
   {
     input: 'src/index.ts',
     output: {
@@ -38,9 +38,18 @@ export default [
       typescript({
         tsconfig: './tsconfig.json',
         declaration: false,
-        declarationMap: false,
       }),
     ],
+    external: ['jose', 'js-cookie', 'react', 'react/jsx-runtime'],
+  },
+  // Main type declarations (bundled)
+  {
+    input: 'src/index.ts',
+    output: {
+      file: 'dist/index.d.ts',
+      format: 'es',
+    },
+    plugins: [dts()],
     external: ['jose', 'js-cookie', 'react', 'react/jsx-runtime'],
   },
   // Middleware ESM build
@@ -57,9 +66,7 @@ export default [
       commonjs(),
       typescript({
         tsconfig: './tsconfig.json',
-        declaration: true,
-        declarationDir: './dist',
-        outDir: './dist/middleware',
+        declaration: false,
       }),
     ],
     external: ['jose', 'js-cookie', 'react', 'react/jsx-runtime'],
@@ -79,9 +86,18 @@ export default [
       typescript({
         tsconfig: './tsconfig.json',
         declaration: false,
-        declarationMap: false,
       }),
     ],
+    external: ['jose', 'js-cookie', 'react', 'react/jsx-runtime'],
+  },
+  // Middleware type declarations (bundled)
+  {
+    input: 'src/middleware/index.ts',
+    output: {
+      file: 'dist/middleware/index.d.ts',
+      format: 'es',
+    },
+    plugins: [dts()],
     external: ['jose', 'js-cookie', 'react', 'react/jsx-runtime'],
   },
 ]
