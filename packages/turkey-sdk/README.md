@@ -747,6 +747,48 @@ if (secondsLeft > 0) {
 }
 ```
 
+---
+
+###### `introspect(token: string): Promise<IntrospectionResult>`
+
+Introspect a token via the TurKey server to check its validity and retrieve metadata.
+
+**Parameters:**
+
+- `token: string` - Access or refresh token to introspect
+
+**Returns:**
+
+```typescript
+interface IntrospectionResult {
+  active: boolean // Whether the token is valid and active
+  type?: 'access' | 'refresh' // Token type
+  payload?: JWTPayload // Decoded JWT payload (for access tokens)
+  expiresAt?: string // Expiration timestamp (for refresh tokens)
+  userId?: string // User ID (for refresh tokens)
+}
+```
+
+**Example:**
+
+```typescript
+try {
+  const result = await client.introspect(accessToken)
+
+  if (result.active) {
+    console.log('Token is valid')
+    if (result.type === 'access' && result.payload) {
+      console.log('User:', result.payload.email)
+      console.log('Role:', result.payload.role)
+    }
+  } else {
+    console.log('Token is invalid or expired')
+  }
+} catch (error) {
+  console.error('Introspection failed:', error.message)
+}
+```
+
 ### Storage Options
 
 #### CookieTokenStorage (Recommended)
@@ -890,6 +932,68 @@ app.use(async (req, res, next) => {
   }
 })
 ```
+
+---
+
+#### Token Introspection
+
+For cases where you need to check token validity without full JWT verification, use `introspectToken`:
+
+```typescript
+import { introspectToken } from '@jimmyjames88/turkey-sdk'
+
+const app = express()
+
+app.get('/api/token-info', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.slice(7) // Remove "Bearer "
+
+    const result = await introspectToken(token!, {
+      baseUrl: process.env.TURKEY_BASE_URL!,
+      appId: process.env.TURKEY_APP_ID,
+    })
+
+    if (result.active) {
+      res.json({
+        active: true,
+        type: result.type,
+        user: result.payload
+          ? {
+              id: result.payload.sub,
+              email: result.payload.email,
+              role: result.payload.role,
+            }
+          : undefined,
+      })
+    } else {
+      res.json({ active: false })
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Introspection failed' })
+  }
+})
+```
+
+**Returns:**
+
+```typescript
+interface IntrospectionResult {
+  active: boolean // Whether the token is valid
+  type?: 'access' | 'refresh' // Token type
+  payload?: JWTPayload // Decoded payload (access tokens)
+  expiresAt?: string // Expiration (refresh tokens)
+  userId?: string // User ID (refresh tokens)
+}
+```
+
+**Use Cases:**
+
+- Checking token validity without requiring full verification
+- Introspecting both access and refresh tokens
+- Token debugging and monitoring
+- Cross-app token validation (introspection is app-agnostic)
+
+---
 
 #### Next.js Middleware (Edge Runtime)
 
