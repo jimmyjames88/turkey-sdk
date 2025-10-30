@@ -59,6 +59,7 @@ export interface TurKeyMiddlewareConfig {
   onError?: (error: Error, req: any, res: any) => void | Promise<void>
   development?: boolean
   checkRevocation?: boolean // Default: true - check if tokens have been revoked
+  serviceApiKey?: string // Service API key for revocation checks (backend-to-backend)
 }
 
 /**
@@ -67,5 +68,6 @@ export interface TurKeyMiddlewareConfig {
 export interface TurKeyEnvironment {
   TURKEY_BASE_URL?: string
   TURKEY_APP_ID?: string
+  TURKEY_SERVICE_API_KEY?: string
   NODE_ENV?: string
 }

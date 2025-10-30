@@ -30,16 +30,24 @@ export class TurKeyClient {
    */
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    includeServiceKey = false
   ): Promise<T> {
     const url = new URL(endpoint, this.config.baseUrl)
 
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    }
+
+    // Add service API key for backend-to-backend endpoints
+    if (includeServiceKey && this.config.serviceApiKey) {
+      headers['X-Turkey-Service-Key'] = this.config.serviceApiKey
+    }
+
     const response = await fetch(url.toString(), {
       ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
+      headers,
       signal: AbortSignal.timeout(this.config.timeout!),
     })
 
@@ -162,6 +170,7 @@ export class TurKeyClient {
 
   /**
    * Introspect an access or refresh token server-side
+   * Requires service API key if server has TURKEY_SERVICE_API_KEY configured
    */
   async introspect(token: string): Promise<IntrospectionResult> {
     const response = await this.request<{ data: IntrospectionResult }>(
@@ -169,7 +178,8 @@ export class TurKeyClient {
       {
         method: 'POST',
         body: JSON.stringify({ token }),
-      }
+      },
+      true // Include service API key
     )
     return response.data
   }

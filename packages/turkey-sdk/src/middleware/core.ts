@@ -14,7 +14,7 @@ import type {
 function getEnvironmentConfig(): Required<
   Pick<TurKeyMiddlewareConfig, 'baseUrl'>
 > &
-  Pick<TurKeyMiddlewareConfig, 'appId' | 'development'> {
+  Pick<TurKeyMiddlewareConfig, 'appId' | 'development' | 'serviceApiKey'> {
   const env = process.env as TurKeyEnvironment
 
   // Validate required environment variables
@@ -32,11 +32,17 @@ function getEnvironmentConfig(): Required<
     if (!env.TURKEY_APP_ID) {
       console.warn('⚠️  TURKEY_APP_ID not set - using default app validation')
     }
+    if (!env.TURKEY_SERVICE_API_KEY) {
+      console.warn(
+        '⚠️  TURKEY_SERVICE_API_KEY not set - revocation checks may fail if server requires it'
+      )
+    }
   }
 
   return {
     baseUrl: env.TURKEY_BASE_URL,
     appId: env.TURKEY_APP_ID,
+    serviceApiKey: env.TURKEY_SERVICE_API_KEY,
     development: isDevelopment,
   }
 }
@@ -135,6 +141,7 @@ export function createTurkeyMiddleware(
   const config = {
     baseUrl: userConfig.baseUrl || envConfig.baseUrl,
     appId: userConfig.appId || envConfig.appId,
+    serviceApiKey: userConfig.serviceApiKey || envConfig.serviceApiKey,
     requireAuth: userConfig.requireAuth !== false, // Default to true
     cookieName: userConfig.cookieName || 'turkey_access_token',
     development: userConfig.development ?? envConfig.development ?? false,
@@ -186,6 +193,7 @@ export function createTurkeyMiddleware(
       if (payload.jti && config.checkRevocation !== false) {
         const isRevoked = await checkRevocation(payload.jti, {
           baseUrl: config.baseUrl,
+          serviceApiKey: config.serviceApiKey,
         })
 
         if (isRevoked) {

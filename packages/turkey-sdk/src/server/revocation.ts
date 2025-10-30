@@ -11,13 +11,14 @@ export interface RevocationCheckResult {
  * Server-side utility for middleware use
  *
  * @param jti - The JWT ID (jti claim) to check
- * @param config - TurKey configuration with baseUrl
+ * @param config - TurKey configuration with baseUrl and optional serviceApiKey
  * @returns Promise<boolean> - true if revoked, false if valid
  *
  * @example
  * ```typescript
  * const isRevoked = await checkRevocation(payload.jti, {
- *   baseUrl: process.env.TURKEY_BASE_URL!
+ *   baseUrl: process.env.TURKEY_BASE_URL!,
+ *   serviceApiKey: process.env.TURKEY_SERVICE_API_KEY
  * })
  * if (isRevoked) {
  *   return res.status(401).json({ error: 'Token has been revoked' })
@@ -26,15 +27,22 @@ export interface RevocationCheckResult {
  */
 export async function checkRevocation(
   jti: string,
-  config: Pick<TurKeyConfig, 'baseUrl'>
+  config: Pick<TurKeyConfig, 'baseUrl' | 'serviceApiKey'>
 ): Promise<boolean> {
   try {
     const url = `${config.baseUrl}/v1/auth/revocation-check`
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    }
+
+    // Add service API key if provided
+    if (config.serviceApiKey) {
+      headers['X-Turkey-Service-Key'] = config.serviceApiKey
+    }
+
     const response = await fetch(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({ jti }),
     })
 
@@ -59,20 +67,27 @@ export async function checkRevocation(
  * Get detailed revocation information for a token
  *
  * @param jti - The JWT ID (jti claim) to check
- * @param config - TurKey configuration with baseUrl
+ * @param config - TurKey configuration with baseUrl and optional serviceApiKey
  * @returns Promise<RevocationCheckResult> - Revocation details or null if not revoked
  */
 export async function getRevocationInfo(
   jti: string,
-  config: Pick<TurKeyConfig, 'baseUrl'>
+  config: Pick<TurKeyConfig, 'baseUrl' | 'serviceApiKey'>
 ): Promise<RevocationCheckResult | null> {
   try {
     const url = `${config.baseUrl}/v1/auth/revocation-check`
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    }
+
+    // Add service API key if provided
+    if (config.serviceApiKey) {
+      headers['X-Turkey-Service-Key'] = config.serviceApiKey
+    }
+
     const response = await fetch(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({ jti }),
     })
 

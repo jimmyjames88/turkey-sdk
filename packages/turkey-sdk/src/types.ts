@@ -2,6 +2,12 @@ export interface TurKeyConfig {
   baseUrl: string
   appId?: string
   timeout?: number
+  /**
+   * Service API key for backend-to-backend calls
+   * Required for introspection and revocation-check endpoints
+   * Set this to match TURKEY_SERVICE_API_KEY on the server
+   */
+  serviceApiKey?: string
 }
 
 export interface LoginRequest {
