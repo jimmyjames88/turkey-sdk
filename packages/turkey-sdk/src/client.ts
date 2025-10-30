@@ -136,24 +136,26 @@ export class TurKeyClient {
   /**
    * Logout user (invalidate current session)
    */
-  async logout(accessToken: string): Promise<void> {
+  async logout(refreshToken: string): Promise<void> {
     await this.request('/v1/auth/logout', {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
+      body: JSON.stringify({
+        refreshToken,
+        appId: this.config.appId,
+      }),
     })
   }
 
   /**
    * Logout from all devices (invalidate all sessions)
    */
-  async logoutAll(accessToken: string): Promise<void> {
+  async logoutAll(refreshToken: string): Promise<void> {
     await this.request('/v1/auth/logout-all', {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
+      body: JSON.stringify({
+        refreshToken,
+        appId: this.config.appId,
+      }),
     })
   }
 
@@ -227,7 +229,11 @@ export class TurKeyClient {
    * Get user info from token
    */
   getUserFromToken(token: string) {
-    return this.tokenManager.getUserFromToken(token)
+    try {
+      return this.tokenManager.getUserFromToken(token)
+    } catch {
+      return null
+    }
   }
 
   /**

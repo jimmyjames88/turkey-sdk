@@ -56,8 +56,7 @@ npm install @jimmyjames88/turkey-sdk-next
 ### React Application
 
 ```typescript
-import { TurKeyClient, AuthProvider, useTurkey } from '@jimmyjames88/turkey-sdk'
-import { CookieTokenStorage } from '@jimmyjames88/turkey-sdk/storage'
+import { TurKeyClient, AuthProvider, useTurkey, CookieTokenStorage } from '@jimmyjames88/turkey-sdk'
 
 const client = new TurKeyClient({
   baseUrl: 'http://localhost:3000',
