@@ -1,6 +1,8 @@
 // Mock for JOSE library
+/* eslint-disable no-undef */
 export const jwtVerify = jest.fn()
 export const createRemoteJWKSet = jest.fn()
+/* eslint-enable no-undef */
 
 export type JWTPayload = {
   iss?: string
@@ -10,5 +12,6 @@ export type JWTPayload = {
   nbf?: number
   iat?: number
   jti?: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [propName: string]: any
 }

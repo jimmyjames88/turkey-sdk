@@ -1,0 +1,19 @@
+# Build outputs
+dist/
+build/
+*.d.ts
+*.js.map
+
+# Dependencies
+node_modules/
+
+# Examples (demonstration code, not production)
+examples/
+
+# Test artifacts
+coverage/
+.nyc_output/
+
+# IDE
+.vscode/
+.idea/
