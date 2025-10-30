@@ -12,16 +12,16 @@ Core TypeScript SDK with React hooks, server-side verification, and Express/Node
 npm install @jimmyjames88/turkey-sdk
 ```
 
-**[��� Full Documentation →](./packages/turkey-sdk/README.md)**
+**[📚 Full Documentation →](./packages/turkey-sdk/README.md)**
 
 **Features:**
 
-- ��� Complete authentication flow (login, register, refresh, logout)
+- 🔐 Complete authentication flow (login, register, refresh, logout)
 - ⚛️ React hooks and context providers
-- ��� Flexible storage backends (cookies, localStorage, memory)
-- ���️ Server-side JWT verification with JWKS
-- ��� Express/Fastify/Koa middleware helpers
-- ��� ESM and CommonJS support
+- 🍪 Flexible storage backends (cookies, localStorage, memory)
+- 🛡️ Server-side JWT verification with JWKS
+- 🔧 Express/Fastify/Koa middleware helpers
+- 📦 ESM and CommonJS support
 
 ---
 
@@ -33,16 +33,16 @@ Next.js middleware with Edge Runtime support and zero-configuration setup.
 npm install @jimmyjames88/turkey-sdk-next
 ```
 
-**[��� Full Documentation →](./packages/turkey-sdk-next/README.md)**
+**[📚 Full Documentation →](./packages/turkey-sdk-next/README.md)**
 
 **Features:**
 
 - ✅ Zero-config with sensible defaults
 - ⚡ Edge Runtime compatible
-- ��� Automatic route detection
-- ��� Auth-only routes (redirect if authenticated)
-- ���️ Smart API error handling (401 JSON vs redirects)
-- ��� Development logging
+- 🎯 Automatic route detection
+- 🔐 Auth-only routes (redirect if authenticated)
+- 🛡️ Smart API error handling (401 JSON vs redirects)
+- 🐛 Development logging
 
 ---
 
@@ -55,82 +55,82 @@ npm install @jimmyjames88/turkey-sdk-next
 
 ### React Application
 
-\`\`\`typescript
+```typescript
 import { TurKeyClient, AuthProvider, useTurkey } from '@jimmyjames88/turkey-sdk'
 import { CookieTokenStorage } from '@jimmyjames88/turkey-sdk/storage'
 
 const client = new TurKeyClient({
-baseUrl: 'http://localhost:3000',
-appId: 'my-app',
+  baseUrl: 'http://localhost:3000',
+  appId: 'my-app',
 })
 
 const storage = new CookieTokenStorage()
 
 function App() {
-return (
-<AuthProvider client={client} storage={storage}>
-<Dashboard />
-</AuthProvider>
-)
+  return (
+    <AuthProvider client={client} storage={storage}>
+      <Dashboard />
+    </AuthProvider>
+  )
 }
 
 function Dashboard() {
-const { user, login, logout } = useTurkey()
+  const { user, login, logout } = useTurkey()
 
-if (!user) {
-return <button onClick={() => login({ email, password })}>Login</button>
-}
+  if (!user) {
+    return <button onClick={() => login({ email, password })}>Login</button>
+  }
 
-return <div>Welcome {user.email}!</div>
+  return <div>Welcome {user.email}!</div>
 }
-\`\`\`
+```
 
 ### Next.js Application
 
-\`\`\`typescript
+```typescript
 // src/middleware.ts
 import { createTurKeyMiddleware } from '@jimmyjames88/turkey-sdk-next'
 
 export const middleware = createTurKeyMiddleware({
-baseUrl: process.env.TURKEY_BASE_URL!,
-appId: process.env.TURKEY_APP_ID!,
+  baseUrl: process.env.TURKEY_BASE_URL!,
+  appId: process.env.TURKEY_APP_ID!,
 })
 
 export const config = {
-matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 }
-\`\`\`
+```
 
 ### Express Server
 
-\`\`\`typescript
+```typescript
 import { verifyJwt } from '@jimmyjames88/turkey-sdk/server'
 
 app.use('/api/protected', async (req, res, next) => {
-try {
-const token = req.headers.authorization?.slice(7) // Remove 'Bearer '
-const payload = await verifyJwt(token, {
-baseUrl: process.env.TURKEY_BASE_URL,
-appId: process.env.TURKEY_APP_ID,
+  try {
+    const token = req.headers.authorization?.slice(7) // Remove 'Bearer '
+    const payload = await verifyJwt(token, {
+      baseUrl: process.env.TURKEY_BASE_URL,
+      appId: process.env.TURKEY_APP_ID,
+    })
+    req.user = payload
+    next()
+  } catch (error) {
+    res.status(401).json({ error: 'Unauthorized' })
+  }
 })
-req.user = payload
-next()
-} catch (error) {
-res.status(401).json({ error: 'Unauthorized' })
-}
-})
-\`\`\`
+```
 
 ---
 
 ## Architecture
 
-\`\`\`mermaid
+```mermaid
 graph TB
-subgraph "Client Applications"
-React["React App<br/>@jimmyjames88/turkey-sdk"]
-Next["Next.js App<br/>@jimmyjames88/turkey-sdk<br/>+ turkey-sdk-next"]
-end
+    subgraph "Client Applications"
+        React["React App<br/>@jimmyjames88/turkey-sdk"]
+        Next["Next.js App<br/>@jimmyjames88/turkey-sdk<br/>+ turkey-sdk-next"]
+    end
 
     subgraph "Backend Services"
         Express["Express API<br/>@jimmyjames88/turkey-sdk/server"]
@@ -152,8 +152,7 @@ end
     style Express fill:#259dff
     style Fastify fill:#000000,color:#fff
     style Auth fill:#4caf50
-
-\`\`\`
+```
 
 ---
 
@@ -161,47 +160,41 @@ end
 
 ### Setup
 
-\`\`\`bash
-
+```bash
 # Install dependencies
-
 npm install
 
 # Build all packages
-
 npm run build
 
 # Build specific package
-
 npm run build:sdk
 npm run build:next
 
 # Run tests
-
 npm test
 npm run test:sdk
 npm run test:next
 
 # Watch mode for development
-
 npm run dev
-\`\`\`
+```
 
 ### Workspace Structure
 
-\`\`\`
+```
 turkey-sdk/
 ├── packages/
-│ ├── turkey-sdk/ # Core SDK
-│ │ ├── src/
-│ │ ├── README.md # Full SDK documentation
-│ │ └── package.json
-│ └── turkey-sdk-next/ # Next.js wrapper
-│ ├── src/
-│ ├── README.md # Full Next.js docs
-│ └── package.json
-└── package.json # Monorepo root
-\`\`\`
+│   ├── turkey-sdk/           # Core SDK
+│   │   ├── src/
+│   │   ├── README.md         # Full SDK documentation
+│   │   └── package.json
+│   └── turkey-sdk-next/      # Next.js wrapper
+│       ├── src/
+│       ├── README.md         # Full Next.js docs
+│       └── package.json
+└── package.json              # Monorepo root
+```
 
 ---
 
@@ -216,18 +209,15 @@ turkey-sdk/
 
 Packages are published independently:
 
-\`\`\`bash
-
+```bash
 # Publish core SDK
-
 cd packages/turkey-sdk
 npm publish
 
 # Publish Next.js wrapper
-
 cd packages/turkey-sdk-next
 npm publish
-\`\`\`
+```
 
 ---
 
