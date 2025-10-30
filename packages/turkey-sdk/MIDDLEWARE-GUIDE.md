@@ -55,9 +55,11 @@ graph LR
 
 ## Next.js Middleware (Edge Runtime)
 
-### Edge Runtime Constraints
+> 💡 **Recommended:** Use the **[@jimmyjames88/turkey-sdk-next](https://github.com/jimmyjames88/turkey-sdk/tree/master/packages/turkey-sdk-next#readme)** package for zero-configuration Next.js middleware.
 
-Next.js middleware runs in the Edge Runtime, which has specific limitations:
+### Why a Separate Package?
+
+Next.js middleware runs in the Edge Runtime with strict limitations:
 
 | Feature          | Available | Notes                          |
 | ---------------- | --------- | ------------------------------ |
@@ -65,174 +67,64 @@ Next.js middleware runs in the Edge Runtime, which has specific limitations:
 | Node.js APIs     | ❌        | No `fs`, `crypto`, etc.        |
 | `jose` library   | ✅        | Edge-compatible JWT library    |
 | `fetch` API      | ✅        | For JWKS retrieval             |
-| Dynamic imports  | ✅        | Use for conditional loading    |
 
-### Implementation Pattern
+The `turkey-sdk-next` package is specifically designed for these constraints with sensible defaults.
+
+### Zero-Configuration Setup
+
+```bash
+npm install @jimmyjames88/turkey-sdk-next
+```
 
 ```typescript
 // src/middleware.ts
-import { NextRequest, NextResponse } from 'next/server'
+import { createTurKeyMiddleware } from '@jimmyjames88/turkey-sdk-next'
 
-/**
- * Inline JWT verification for edge runtime
- * Cannot import from SDK due to React context dependencies
- */
-async function verifyJwt(
-  token: string,
-  config: { baseUrl: string; appId?: string }
-) {
-  const { baseUrl, appId } = config
-  const jwksUrl = `${baseUrl}/.well-known/jwks.json`
-
-  // Dynamic import for edge runtime compatibility
-  const { jwtVerify, createRemoteJWKSet } = await import('jose')
-  const JWKS = createRemoteJWKSet(new URL(jwksUrl))
-
-  const { payload } = await jwtVerify(token, JWKS, {
-    audience: appId,
-  })
-
-  return payload as {
-    sub?: string
-    email?: string
-    role?: string
-    aud?: string
-  }
-}
-
-/**
- * Extract JWT token from request
- * Checks cookies first (browser apps), then Authorization header (API clients)
- */
-function extractToken(request: NextRequest): string | null {
-  // Try cookie (recommended for browser apps)
-  const cookieToken = request.cookies.get('turkey_access_token')?.value
-  if (cookieToken) return cookieToken
-
-  // Try Authorization header (for API clients)
-  const authHeader = request.headers.get('authorization')
-  if (authHeader?.startsWith('Bearer ')) {
-    return authHeader.slice(7)
-  }
-
-  return null
-}
-
-export async function middleware(request: NextRequest) {
-  const path = request.nextUrl.pathname
-
-  // Skip middleware for static assets and public routes
-  if (
-    path.startsWith('/_next/') ||
-    path.startsWith('/auth/') ||
-    path === '/login' ||
-    path === '/register'
-  ) {
-    return NextResponse.next()
-  }
-
-  // Protect dashboard and API routes
-  if (path.startsWith('/dashboard') || path.startsWith('/api/')) {
-    const token = extractToken(request)
-
-    if (!token) {
-      return handleUnauthenticated(request, path.startsWith('/api/'))
-    }
-
-    try {
-      // Verify JWT with JWKS from turkey server
-      const payload = await verifyJwt(token, {
-        baseUrl: process.env.TURKEY_BASE_URL!,
-        appId: process.env.TURKEY_APP_ID,
-      })
-
-      // Attach user data to request headers for route handlers
-      const response = NextResponse.next()
-      response.headers.set('x-turkey-user-id', payload.sub || '')
-      response.headers.set('x-turkey-user-email', payload.email || '')
-      response.headers.set('x-turkey-user-role', payload.role || '')
-      response.headers.set('x-turkey-app-id', payload.aud || '')
-
-      return response
-    } catch (error) {
-      return handleUnauthenticated(request, path.startsWith('/api/'))
-    }
-  }
-
-  return NextResponse.next()
-}
-
-function handleUnauthenticated(request: NextRequest, isApiRoute: boolean) {
-  if (isApiRoute) {
-    return new NextResponse(
-      JSON.stringify({ error: 'Authentication required' }),
-      {
-        status: 401,
-        headers: { 'content-type': 'application/json' },
-      }
-    )
-  }
-
-  const loginUrl = new URL('/auth/login', request.url)
-  loginUrl.searchParams.set('redirect', request.nextUrl.pathname)
-  return NextResponse.redirect(loginUrl)
-}
+export const middleware = createTurKeyMiddleware({
+  baseUrl: process.env.TURKEY_BASE_URL!,
+  appId: process.env.TURKEY_APP_ID!,
+})
 
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimization)
-     * - favicon.ico (favicon)
-     */
-    '/((?!_next/static|_next/image|favicon.ico).*)',
-  ],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 }
 ```
 
-### Route Protection Pattern
+**Default behavior includes:**
 
-**Important:** Next.js route groups like `(protected)` don't appear in URLs!
+- ✅ Protected routes: `/dashboard`, `/profile`, `/settings`
+- ✅ Auth-only routes: `/auth/login`, `/auth/register` (redirects if authenticated)
+- ✅ Protected APIs: `/api/protected/*` returns 401 JSON
+- ✅ Smart redirects: Unauthenticated → `/auth/login`, Authenticated → `/dashboard`
+- ✅ Development logging: Automatic debug mode in development
 
-```
-File structure:           URL path:
-app/
-  (protected)/
-    dashboard/
-      page.tsx           → /dashboard (NOT /(protected)/dashboard)
-```
-
-Create explicit route lists instead of pattern matching on folders:
+### Custom Configuration
 
 ```typescript
-// src/config/routes.ts
-export const protectedRoutes = ['/dashboard', '/profile', '/settings']
-export const protectedApiRoutes = ['/api/user', '/api/data']
+export const middleware = createTurKeyMiddleware({
+  baseUrl: process.env.TURKEY_BASE_URL!,
+  appId: process.env.TURKEY_APP_ID!,
 
-export function getRouteType(path: string): 'protected' | 'public' {
-  if (protectedRoutes.some((route) => path.startsWith(route))) {
-    return 'protected'
-  }
-  return 'public'
-}
+  // Add more protected routes (merged with defaults)
+  routes: {
+    protected: ['/admin', '/billing'],
+    authOnly: ['/signup'],
+    protectedApi: ['/api/admin/*'],
+  },
+
+  // Custom redirects
+  redirects: {
+    unauthenticated: '/signin',
+    authenticated: '/home',
+  },
+})
 ```
 
-### Environment Variables
-
-```bash
-# Server-side (for middleware and API routes)
-TURKEY_BASE_URL=http://localhost:3000
-TURKEY_APP_ID=my-app  # Optional: validates aud claim
-
-# Client-side (for browser SDK usage)
-NEXT_PUBLIC_TURKEY_BASE_URL=http://localhost:3000
-NEXT_PUBLIC_TURKEY_AUDIENCE=my-app
-```
-
-**Critical:** Environment variables without `NEXT_PUBLIC_` are server-only. Dev server must be restarted when changing `.env.local`.
+See the [turkey-sdk-next documentation](https://github.com/jimmyjames88/turkey-sdk/tree/master/packages/turkey-sdk-next#readme) for advanced patterns like custom route type detection and role-based access.
 
 ### Accessing User Data in Route Handlers
+
+The middleware automatically attaches user information to request headers:
 
 ```typescript
 // app/api/profile/route.ts
@@ -346,46 +238,7 @@ app.get('/api/admin', async (req, res) => {
 })
 ```
 
-### 2. Importing SDK in Edge Runtime
-
-❌ **WRONG:**
-
-```typescript
-// middleware.ts
-import { verifyJwt } from '@jimmyjames88/turkey-sdk' // Fails!
-// Error: createContext is not a function
-```
-
-✅ **CORRECT:**
-
-```typescript
-// middleware.ts
-// Use inline verification with jose library
-const { jwtVerify, createRemoteJWKSet } = await import('jose')
-```
-
-### 3. Route Group URL Matching
-
-❌ **WRONG:**
-
-```typescript
-// Checking for route groups in URL
-if (path.includes('/(protected)/')) {
-  // This will NEVER match!
-}
-```
-
-✅ **CORRECT:**
-
-```typescript
-// Check actual URL paths
-const protectedRoutes = ['/dashboard', '/profile']
-if (protectedRoutes.some((route) => path.startsWith(route))) {
-  // This works correctly
-}
-```
-
-### 4. Missing Environment Variables
+### 2. Missing Environment Variables
 
 ❌ **WRONG:**
 
@@ -401,23 +254,19 @@ const baseUrl = process.env.NEXT_PUBLIC_TURKEY_BASE_URL // undefined!
 const baseUrl = process.env.TURKEY_BASE_URL // Works!
 ```
 
-### 5. Forgetting App ID Validation
+### 3. Forgetting App ID Validation
 
-❌ **RISKY:**
-
-```typescript
-// Accepting tokens from any app
-const payload = await jwtVerify(token, JWKS) // No aud check!
-```
-
-✅ **SECURE:**
+Using turkey-sdk-next, app ID validation is automatic:
 
 ```typescript
-// Validate app ID (aud claim)
-const payload = await jwtVerify(token, JWKS, {
-  audience: 'my-specific-app', // Rejects tokens for other apps
+// App ID is required in the config
+export const middleware = createTurKeyMiddleware({
+  baseUrl: process.env.TURKEY_BASE_URL!,
+  appId: process.env.TURKEY_APP_ID!, // Validates aud claim
 })
 ```
+
+This ensures tokens can only be used with their intended application.
 
 ## Architecture Patterns
 
@@ -504,11 +353,12 @@ curl -i -H "Cookie: turkey_access_token=eyJhbG..." http://localhost:3001/dashboa
 
 ## Lessons Learned
 
-### Edge Runtime Compatibility
+### Next.js Edge Runtime
 
-1. **Cannot import React code** - Edge runtime is Node.js-like but restricted
-2. **Use dynamic imports for jose** - Ensures edge compatibility
-3. **Inline critical functions** - Don't rely on SDK exports in middleware
+1. **Use turkey-sdk-next** - Purpose-built for Edge Runtime constraints
+2. **Zero-config by default** - Start simple, customize only when needed
+3. **Route detection is automatic** - Sensible defaults for most applications
+4. **Smart API handling** - Automatically returns 401 JSON for API routes
 
 ### Next.js Specific
 

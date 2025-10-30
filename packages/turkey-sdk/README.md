@@ -893,119 +893,78 @@ app.use(async (req, res, next) => {
 
 #### Next.js Middleware (Edge Runtime)
 
-For Next.js applications, middleware runs in the Edge Runtime with specific constraints:
+For Next.js applications, use the **[@jimmyjames88/turkey-sdk-next](https://github.com/jimmyjames88/turkey-sdk/tree/master/packages/turkey-sdk-next)** package, which is purpose-built for Edge Runtime:
 
-**Edge Runtime Limitations:**
+```bash
+npm install @jimmyjames88/turkey-sdk-next
+```
+
+**Zero-Configuration Setup:**
+
+```typescript
+// src/middleware.ts
+import { createTurKeyMiddleware } from '@jimmyjames88/turkey-sdk-next'
+
+export const middleware = createTurKeyMiddleware({
+  baseUrl: process.env.TURKEY_BASE_URL!,
+  appId: process.env.TURKEY_APP_ID!,
+})
+
+export const config = {
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+}
+```
+
+**Features:**
+
+- ✅ **Zero-config** - Sensible defaults for protected routes, redirects, and auth flows
+- ✅ **Edge Runtime compatible** - No React dependencies, uses `jose` for JWT verification
+- ✅ **Automatic route detection** - Protects `/dashboard`, `/profile`, `/settings` by default
+- ✅ **Auth-only routes** - Redirects authenticated users away from `/auth/login`, `/auth/register`
+- ✅ **Smart API handling** - Returns 401 JSON for APIs, redirects for pages
+- ✅ **Development logging** - Automatic debug mode in development
+
+**Default Behavior:**
+
+- **Protected Routes:** `/dashboard`, `/profile`, `/settings` → Requires authentication
+- **Auth-Only Routes:** `/auth/login`, `/auth/register` → Redirects if authenticated
+- **Protected APIs:** `/api/protected/*` → Returns 401 JSON
+- **Public Routes:** Everything else is public by default
+
+**Customization:**
+
+```typescript
+export const middleware = createTurKeyMiddleware({
+  baseUrl: process.env.TURKEY_BASE_URL!,
+  appId: process.env.TURKEY_APP_ID!,
+
+  // Add more protected routes (merged with defaults)
+  routes: {
+    protected: ['/admin', '/billing'],
+    authOnly: ['/signup'],
+    protectedApi: ['/api/admin/*'],
+  },
+
+  // Custom redirects
+  redirects: {
+    unauthenticated: '/signin',
+    authenticated: '/home',
+  },
+})
+```
+
+See the [turkey-sdk-next documentation](https://github.com/jimmyjames88/turkey-sdk/tree/master/packages/turkey-sdk-next#readme) for full details.
+
+**Why a Separate Package?**
+
+The Edge Runtime has strict limitations:
 
 - ❌ Cannot import React components or client-side code
 - ❌ Cannot use Node.js-specific modules
 - ✅ Can use `jose` library for JWT verification
 - ✅ Can use `fetch` API for JWKS retrieval
 
-```typescript
-// src/middleware.ts
-import { NextRequest, NextResponse } from 'next/server'
-
-// Inline JWT verification for edge runtime compatibility
-async function verifyJwt(
-  token: string,
-  config: { baseUrl: string; appId?: string }
-) {
-  const { baseUrl, appId } = config
-  const jwksUrl = `${baseUrl}/.well-known/jwks.json`
-
-  // Dynamic import for edge runtime
-  const { jwtVerify, createRemoteJWKSet } = await import('jose')
-  const JWKS = createRemoteJWKSet(new URL(jwksUrl))
-
-  const { payload } = await jwtVerify(token, JWKS, {
-    audience: appId,
-  })
-
-  return payload as {
-    sub?: string
-    email?: string
-    role?: string
-    aud?: string
-  }
-}
-
-function extractToken(request: NextRequest): string | null {
-  // Try cookie first (browser apps)
-  const cookieToken = request.cookies.get('turkey_access_token')?.value
-  if (cookieToken) return cookieToken
-
-  // Try Authorization header (API clients)
-  const authHeader = request.headers.get('authorization')
-  if (authHeader?.startsWith('Bearer ')) {
-    return authHeader.slice(7)
-  }
-
-  return null
-}
-
-export async function middleware(request: NextRequest) {
-  const path = request.nextUrl.pathname
-
-  // Skip public routes
-  if (path.startsWith('/auth/') || path.startsWith('/_next/')) {
-    return NextResponse.next()
-  }
-
-  // Protect dashboard and API routes
-  if (path.startsWith('/dashboard') || path.startsWith('/api/')) {
-    const token = extractToken(request)
-
-    if (!token) {
-      if (path.startsWith('/api/')) {
-        return new NextResponse(
-          JSON.stringify({ error: 'Authentication required' }),
-          { status: 401, headers: { 'content-type': 'application/json' } }
-        )
-      }
-
-      const loginUrl = new URL('/auth/login', request.url)
-      loginUrl.searchParams.set('redirect', path)
-      return NextResponse.redirect(loginUrl)
-    }
-
-    try {
-      // Verify JWT with JWKS
-      const payload = await verifyJwt(token, {
-        baseUrl: process.env.TURKEY_BASE_URL!,
-        appId: process.env.TURKEY_APP_ID,
-      })
-
-      // Attach user data to request headers
-      const response = NextResponse.next()
-      response.headers.set('x-turkey-user-id', payload.sub || '')
-      response.headers.set('x-turkey-user-email', payload.email || '')
-      response.headers.set('x-turkey-user-role', payload.role || '')
-      response.headers.set('x-turkey-app-id', payload.aud || '')
-
-      return response
-    } catch (error) {
-      // Invalid token
-      if (path.startsWith('/api/')) {
-        return new NextResponse(
-          JSON.stringify({ error: 'Invalid or expired token' }),
-          { status: 401, headers: { 'content-type': 'application/json' } }
-        )
-      }
-
-      const loginUrl = new URL('/auth/login', request.url)
-      loginUrl.searchParams.set('redirect', path)
-      return NextResponse.redirect(loginUrl)
-    }
-  }
-
-  return NextResponse.next()
-}
-
-export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
-}
-```
+The `turkey-sdk-next` package is specifically designed for these constraints, keeping the main SDK clean and avoiding Edge Runtime compatibility issues.
 
 **Accessing User Data in Route Handlers:**
 
