@@ -19,7 +19,11 @@
     "dev": "npm run build:watch -ws --if-present",
     "clean": "rm -rf packages/*/dist packages/*/node_modules node_modules"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "@jimmyjames88/eslint-config": "^1.0.1",
+    "eslint": "^8.57.1",
+    "prettier": "^3.6.2"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/jimmyjames88/turkey-sdk.git"
