@@ -1,0 +1,92 @@
+name: Security Audit
+
+on:
+  # Run on every PR
+  pull_request:
+    branches: [master, main]
+  
+  # Run on push to main branches
+  push:
+    branches: [master, main]
+  
+  # Run weekly on Monday at 9 AM UTC
+  schedule:
+    - cron: '0 9 * * 1'
+  
+  # Allow manual trigger
+  workflow_dispatch:
+
+jobs:
+  audit:
+    name: NPM Security Audit
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        package:
+          - path: '.'
+            name: 'root'
+          - path: 'packages/turkey-sdk'
+            name: 'turkey-sdk'
+          - path: 'packages/turkey-sdk-next'
+            name: 'turkey-sdk-next'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies (${{ matrix.package.name }})
+        working-directory: ${{ matrix.package.path }}
+        run: npm ci
+      
+      - name: Run npm audit (${{ matrix.package.name }})
+        working-directory: ${{ matrix.package.path }}
+        run: npm audit --audit-level=moderate
+        continue-on-error: false
+      
+      - name: Check for outdated packages (${{ matrix.package.name }})
+        working-directory: ${{ matrix.package.path }}
+        run: npm outdated || true
+      
+      - name: Generate audit report
+        if: failure()
+        working-directory: ${{ matrix.package.path }}
+        run: |
+          echo "## Security Audit Failed for ${{ matrix.package.name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Run \`npm audit\` locally to see details." >> $GITHUB_STEP_SUMMARY
+          npm audit --json > audit-report.json || true
+          echo '```json' >> $GITHUB_STEP_SUMMARY
+          cat audit-report.json >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+      
+      - name: Upload audit report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-report-${{ matrix.package.name }}
+          path: ${{ matrix.package.path }}/audit-report.json
+          retention-days: 30
+
+  # Summary job
+  summary:
+    name: Audit Summary
+    runs-on: ubuntu-latest
+    needs: audit
+    if: always()
+    
+    steps:
+      - name: Check audit results
+        run: |
+          if [ "${{ needs.audit.result }}" = "failure" ]; then
+            echo "❌ Security audit found vulnerabilities!"
+            exit 1
+          else
+            echo "✅ All security audits passed!"
+          fi
