@@ -1687,8 +1687,78 @@ interface TurKeyConfig {
   baseUrl: string // TurKey server URL
   appId?: string // Default app identifier for tokens
   timeout?: number // Request timeout (default: 10000ms)
+  serviceApiKey?: string // Service API key for protected backend endpoints
 }
 ```
+
+### Service API Key
+
+Protect sensitive backend-to-backend endpoints with service API keys. Required for:
+
+- Token introspection (`/v1/auth/introspect`)
+- Token revocation checks (`/v1/auth/revocation-check`)
+
+**Server-Side Usage:**
+
+```typescript
+import {
+  checkRevocation,
+  getRevocationInfo,
+} from '@jimmyjames88/turkey-sdk/server'
+
+// Check if token is revoked
+const isRevoked = await checkRevocation(jti, {
+  baseUrl: process.env.TURKEY_BASE_URL!,
+  serviceApiKey: process.env.TURKEY_SERVICE_API_KEY, // Optional but recommended
+})
+
+// Get detailed revocation info
+const info = await getRevocationInfo(jti, {
+  baseUrl: process.env.TURKEY_BASE_URL!,
+  serviceApiKey: process.env.TURKEY_SERVICE_API_KEY,
+})
+```
+
+**Client Usage:**
+
+```typescript
+const client = new TurKeyClient({
+  baseUrl: 'http://localhost:3000',
+  appId: 'my-app',
+  serviceApiKey: process.env.TURKEY_SERVICE_API_KEY, // For introspection
+})
+
+// Introspect will automatically include the API key header
+const result = await client.introspect(token)
+```
+
+**Middleware Auto-Configuration:**
+
+```typescript
+// Zero-config: reads TURKEY_SERVICE_API_KEY from environment
+import { createAuthMiddleware } from '@jimmyjames88/turkey-sdk/middleware'
+
+export const middleware = createAuthMiddleware()
+// Automatically uses TURKEY_SERVICE_API_KEY for revocation checks
+```
+
+**Environment Variables:**
+
+```bash
+# Turkey Server - set this to enable API key protection
+TURKEY_SERVICE_API_KEY=your-secure-random-key-here
+
+# SDK - same key for making requests to protected endpoints
+TURKEY_SERVICE_API_KEY=your-secure-random-key-here
+```
+
+**Security Notes:**
+
+- Use cryptographically secure random strings (minimum 32 characters)
+- Never commit API keys to version control
+- Rotate keys periodically
+- Use different keys for different environments
+- If `TURKEY_SERVICE_API_KEY` is not set on the server, endpoints remain unprotected (backward compatible)
 
 ## Testing
 
