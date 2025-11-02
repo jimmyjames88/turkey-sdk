@@ -879,6 +879,184 @@ try {
 }
 ```
 
+---
+
+##### Email & Password Reset Methods
+
+###### `requestPasswordReset(email: string): Promise<RequestPasswordResetResponse>`
+
+Request a password reset email for a user.
+
+**Parameters:**
+
+- `email: string` - User's email address
+
+**Returns:**
+
+```typescript
+interface RequestPasswordResetResponse {
+  message: string // Always returns success for security (prevents email enumeration)
+}
+```
+
+**Security Features:**
+
+- Email enumeration prevention (always returns success)
+- Rate limited on the server (3 per hour per user)
+- Tokens expire after 1 hour by default
+
+**Example:**
+
+```typescript
+try {
+  const response = await client.requestPasswordReset('user@example.com')
+  console.log(response.message)
+  // Show success message to user
+  alert('If your email exists, you will receive a password reset link')
+} catch (error) {
+  console.error('Password reset request failed:', error.message)
+}
+```
+
+---
+
+###### `resetPassword(token: string, newPassword: string): Promise<ResetPasswordResponse>`
+
+Complete the password reset using the token from the email.
+
+**Parameters:**
+
+- `token: string` - Reset token from email
+- `newPassword: string` - New password (must meet strength requirements)
+
+**Returns:**
+
+```typescript
+interface ResetPasswordResponse {
+  message: string // Success message
+}
+```
+
+**Password Requirements:**
+
+- Minimum 8 characters
+- At least one uppercase letter
+- At least one lowercase letter
+- At least one number
+- At least one special character (@$!%\*?&)
+
+**Example:**
+
+```typescript
+try {
+  // Extract token from URL query parameter
+  const urlParams = new URLSearchParams(window.location.search)
+  const token = urlParams.get('token')
+
+  if (token) {
+    const response = await client.resetPassword(token, 'NewSecure123!')
+    console.log(response.message)
+    // Redirect to login
+    window.location.href = '/login?reset=success'
+  }
+} catch (error) {
+  if (error.code === 'invalid_token') {
+    alert('Invalid or expired reset link')
+  } else if (error.code === 'weak_password') {
+    alert('Password does not meet security requirements')
+  } else {
+    console.error('Password reset failed:', error.message)
+  }
+}
+```
+
+---
+
+###### `verifyEmail(token: string): Promise<VerifyEmailResponse>`
+
+Verify a user's email address using the token from the verification email.
+
+**Parameters:**
+
+- `token: string` - Verification token from email
+
+**Returns:**
+
+```typescript
+interface VerifyEmailResponse {
+  message: string // Success message
+  user: {
+    id: string
+    email: string
+    emailVerified: boolean // Will be true after successful verification
+  }
+}
+```
+
+**Example:**
+
+```typescript
+try {
+  // Extract token from URL query parameter
+  const urlParams = new URLSearchParams(window.location.search)
+  const token = urlParams.get('token')
+
+  if (token) {
+    const response = await client.verifyEmail(token)
+    console.log(response.message)
+    console.log('User verified:', response.user)
+    // Show success message and redirect
+    alert('Email verified successfully! Welcome!')
+    window.location.href = '/dashboard'
+  }
+} catch (error) {
+  if (error.code === 'invalid_token') {
+    alert('Invalid or expired verification link')
+  } else {
+    console.error('Email verification failed:', error.message)
+  }
+}
+```
+
+---
+
+###### `resendVerification(email: string): Promise<ResendVerificationResponse>`
+
+Resend the email verification link to a user.
+
+**Parameters:**
+
+- `email: string` - User's email address
+
+**Returns:**
+
+```typescript
+interface ResendVerificationResponse {
+  message: string // Always returns success for security (prevents email enumeration)
+}
+```
+
+**Security Features:**
+
+- Email enumeration prevention (always returns success)
+- Rate limited on the server (5 per 15 min via login rate limit)
+- Maximum 3 verification emails per hour per user
+- No-op if email already verified
+
+**Example:**
+
+```typescript
+try {
+  const response = await client.resendVerification('user@example.com')
+  console.log(response.message)
+  alert('If your email is not verified, a new verification link has been sent')
+} catch (error) {
+  console.error('Resend verification failed:', error.message)
+}
+```
+
+---
+
 ### Storage Options
 
 #### CookieTokenStorage (Recommended)
@@ -938,6 +1116,359 @@ Fetch wrapper that automatically includes auth headers.
 const authenticatedFetch = useAuthenticatedFetch(storage)
 const response = await authenticatedFetch('/api/protected-endpoint')
 ```
+
+---
+
+## Email Integration Examples
+
+### Password Reset Flow
+
+Complete implementation of password reset with error handling:
+
+```typescript
+// 1. Password Reset Request Page
+import { useState } from 'react'
+import { TurKeyClient } from '@jimmyjames88/turkey-sdk'
+
+function ForgotPasswordPage() {
+  const [email, setEmail] = useState('')
+  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
+  const client = new TurKeyClient({ baseUrl: 'https://auth.yourapp.com' })
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setStatus('loading')
+
+    try {
+      await client.requestPasswordReset(email)
+      setStatus('success')
+    } catch (error) {
+      console.error(error)
+      setStatus('error')
+    }
+  }
+
+  return (
+    <div>
+      <h1>Forgot Password</h1>
+      {status === 'success' ? (
+        <p>If an account exists with that email, you will receive a password reset link.</p>
+      ) : (
+        <form onSubmit={handleSubmit}>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="Enter your email"
+            required
+          />
+          <button type="submit" disabled={status === 'loading'}>
+            {status === 'loading' ? 'Sending...' : 'Send Reset Link'}
+          </button>
+          {status === 'error' && <p>Something went wrong. Please try again.</p>}
+        </form>
+      )}
+    </div>
+  )
+}
+
+// 2. Password Reset Completion Page
+import { useState, useEffect } from 'react'
+import { useSearchParams, useNavigate } from 'react-router-dom'
+
+function ResetPasswordPage() {
+  const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
+  const [error, setError] = useState('')
+  const client = new TurKeyClient({ baseUrl: 'https://auth.yourapp.com' })
+
+  const token = searchParams.get('token')
+
+  useEffect(() => {
+    if (!token) {
+      navigate('/forgot-password')
+    }
+  }, [token, navigate])
+
+  const validatePassword = (pwd: string): string | null => {
+    if (pwd.length < 8) return 'Password must be at least 8 characters'
+    if (!/[A-Z]/.test(pwd)) return 'Password must contain an uppercase letter'
+    if (!/[a-z]/.test(pwd)) return 'Password must contain a lowercase letter'
+    if (!/\d/.test(pwd)) return 'Password must contain a number'
+    if (!/[@$!%*?&]/.test(pwd)) return 'Password must contain a special character'
+    return null
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+
+    // Validation
+    if (password !== confirmPassword) {
+      setError('Passwords do not match')
+      return
+    }
+
+    const validationError = validatePassword(password)
+    if (validationError) {
+      setError(validationError)
+      return
+    }
+
+    setStatus('loading')
+
+    try {
+      await client.resetPassword(token!, password)
+      setStatus('success')
+      setTimeout(() => navigate('/login?reset=success'), 2000)
+    } catch (error: any) {
+      setStatus('error')
+      if (error.code === 'invalid_token') {
+        setError('Invalid or expired reset link. Please request a new one.')
+      } else if (error.code === 'weak_password') {
+        setError('Password does not meet security requirements')
+      } else {
+        setError('Failed to reset password. Please try again.')
+      }
+    }
+  }
+
+  return (
+    <div>
+      <h1>Reset Password</h1>
+      {status === 'success' ? (
+        <p>Password reset successfully! Redirecting to login...</p>
+      ) : (
+        <form onSubmit={handleSubmit}>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="New password"
+            required
+          />
+          <input
+            type="password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            placeholder="Confirm password"
+            required
+          />
+          <button type="submit" disabled={status === 'loading'}>
+            {status === 'loading' ? 'Resetting...' : 'Reset Password'}
+          </button>
+          {error && <p style={{ color: 'red' }}>{error}</p>}
+        </form>
+      )}
+    </div>
+  )
+}
+```
+
+### Email Verification Flow
+
+Complete email verification with automatic handling:
+
+```typescript
+// 1. Email Verification Handler (runs on load)
+import { useEffect, useState } from 'react'
+import { useSearchParams, useNavigate } from 'react-router-dom'
+import { TurKeyClient } from '@jimmyjames88/turkey-sdk'
+
+function EmailVerificationPage() {
+  const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
+  const [status, setStatus] = useState<'verifying' | 'success' | 'error'>('verifying')
+  const [error, setError] = useState('')
+  const client = new TurKeyClient({ baseUrl: 'https://auth.yourapp.com' })
+
+  useEffect(() => {
+    const token = searchParams.get('token')
+
+    if (!token) {
+      setStatus('error')
+      setError('No verification token provided')
+      return
+    }
+
+    const verify = async () => {
+      try {
+        const response = await client.verifyEmail(token)
+        console.log('Verified user:', response.user)
+        setStatus('success')
+        // Redirect to dashboard after 2 seconds
+        setTimeout(() => navigate('/dashboard'), 2000)
+      } catch (error: any) {
+        setStatus('error')
+        if (error.code === 'invalid_token') {
+          setError('Invalid or expired verification link')
+        } else {
+          setError('Verification failed. Please try again.')
+        }
+      }
+    }
+
+    verify()
+  }, [searchParams, navigate])
+
+  return (
+    <div>
+      <h1>Email Verification</h1>
+      {status === 'verifying' && <p>Verifying your email...</p>}
+      {status === 'success' && (
+        <div>
+          <p>✅ Email verified successfully!</p>
+          <p>Redirecting to dashboard...</p>
+        </div>
+      )}
+      {status === 'error' && (
+        <div>
+          <p>❌ {error}</p>
+          <button onClick={() => navigate('/resend-verification')}>
+            Request New Link
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// 2. Resend Verification Page
+function ResendVerificationPage() {
+  const [email, setEmail] = useState('')
+  const [status, setStatus] = useState<'idle' | 'loading' | 'success'>('idle')
+  const client = new TurKeyClient({ baseUrl: 'https://auth.yourapp.com' })
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setStatus('loading')
+
+    try {
+      await client.resendVerification(email)
+      setStatus('success')
+    } catch (error) {
+      console.error(error)
+      setStatus('success') // Always show success (email enumeration prevention)
+    }
+  }
+
+  return (
+    <div>
+      <h1>Resend Verification Email</h1>
+      {status === 'success' ? (
+        <p>If your email is not verified, a new verification link has been sent.</p>
+      ) : (
+        <form onSubmit={handleSubmit}>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="Enter your email"
+            required
+          />
+          <button type="submit" disabled={status === 'loading'}>
+            {status === 'loading' ? 'Sending...' : 'Resend Link'}
+          </button>
+        </form>
+      )}
+    </div>
+  )
+}
+
+// 3. Registration with Email Verification
+function RegisterPage() {
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
+  const client = new TurKeyClient({ baseUrl: 'https://auth.yourapp.com' })
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setStatus('loading')
+
+    try {
+      // Registration automatically sends verification email
+      await client.register({ email, password })
+      setStatus('success')
+    } catch (error) {
+      console.error(error)
+      setStatus('error')
+    }
+  }
+
+  return (
+    <div>
+      <h1>Register</h1>
+      {status === 'success' ? (
+        <div>
+          <p>✅ Account created successfully!</p>
+          <p>📧 Please check your email to verify your account.</p>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit}>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="Email"
+            required
+          />
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Password"
+            required
+          />
+          <button type="submit" disabled={status === 'loading'}>
+            {status === 'loading' ? 'Creating Account...' : 'Register'}
+          </button>
+          {status === 'error' && <p>Registration failed. Please try again.</p>}
+        </form>
+      )}
+    </div>
+  )
+}
+```
+
+### Email Verification with React Context
+
+Integrate email verification into your auth flow:
+
+```typescript
+import { useEffect } from 'react'
+import { useTurkey } from '@jimmyjames88/turkey-sdk'
+
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { user, client } = useTurkey()
+
+  if (!user) {
+    return <Navigate to="/login" />
+  }
+
+  // Check if email verification is required
+  if (user.emailVerified === false) {
+    return (
+      <div>
+        <h2>Email Verification Required</h2>
+        <p>Please verify your email to access this page.</p>
+        <button
+          onClick={() => client.resendVerification(user.email)}
+        >
+          Resend Verification Email
+        </button>
+      </div>
+    )
+  }
+
+  return <>{children}</>
+}
+```
+
+---
 
 ## Token Revocation
 
