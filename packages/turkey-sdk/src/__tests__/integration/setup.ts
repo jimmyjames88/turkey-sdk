@@ -62,6 +62,7 @@ export const INTEGRATION_CONFIG = {
 }
 
 // Run server verification before all tests
+// eslint-disable-next-line no-undef
 beforeAll(async () => {
   await verifyTurkeyServer()
 })

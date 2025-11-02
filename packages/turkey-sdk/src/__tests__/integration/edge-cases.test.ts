@@ -17,14 +17,12 @@ import { INTEGRATION_CONFIG, generateTestEmail, TEST_PASSWORD } from './setup'
 
 describe('Edge Cases', () => {
   let client: TurKeyClient
-  let storage: MemoryTokenStorage
 
   beforeEach(() => {
     client = new TurKeyClient({
       baseUrl: INTEGRATION_CONFIG.baseUrl,
       appId: INTEGRATION_CONFIG.appId,
     })
-    storage = new MemoryTokenStorage()
   })
 
   describe('Network Failures', () => {
@@ -230,7 +228,7 @@ describe('Edge Cases', () => {
 
   describe('Concurrent Requests', () => {
     it('should handle multiple simultaneous registrations', async () => {
-      const promises = Array.from({ length: 5 }, (_, i) =>
+      const promises = Array.from({ length: 5 }, () =>
         client.register({
           email: generateTestEmail(),
           password: TEST_PASSWORD,
@@ -309,7 +307,6 @@ describe('Edge Cases', () => {
       const results = await Promise.allSettled(promises)
 
       const succeeded = results.filter((r) => r.status === 'fulfilled')
-      const failed = results.filter((r) => r.status === 'rejected')
 
       // At least one should succeed
       expect(succeeded.length).toBeGreaterThanOrEqual(1)
@@ -426,7 +423,7 @@ describe('Edge Cases', () => {
           email: 'invalid-email-format',
           password: 'short',
         })
-        fail('Should have thrown an error')
+        throw new Error('Should have thrown an error')
       } catch (error) {
         expect(error).toBeInstanceOf(TurKeyAuthError)
         if (error instanceof TurKeyAuthError) {
@@ -444,7 +441,7 @@ describe('Edge Cases', () => {
           email: 'test@example.com',
           password: 'weak', // Too weak password
         })
-        fail('Should have thrown an error')
+        throw new Error('Should have thrown an error')
       } catch (error) {
         expect(error).toBeInstanceOf(TurKeyAuthError)
         if (error instanceof TurKeyAuthError) {
