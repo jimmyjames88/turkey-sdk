@@ -1,75 +1,111 @@
 import { useState, useEffect, useMemo } from 'react'
 import {
   validatePassword,
+  getPasswordStrength,
   type PasswordValidationResult,
   DEFAULT_PASSWORD_REQUIREMENTS,
   type PasswordRequirements,
 } from '../password-validation'
 
 /**
- * React hook for real-time password validation
+ * React hook for real-time password validation with debouncing
  */
 export function usePasswordValidation(
   password: string,
-  requirements: PasswordRequirements = DEFAULT_PASSWORD_REQUIREMENTS
+  requirements: PasswordRequirements = DEFAULT_PASSWORD_REQUIREMENTS,
+  debounceMs: number = 300
 ): PasswordValidationResult & {
   strengthText: string
   strengthColor: 'error' | 'warning' | 'info' | 'success'
+  strengthLevel: 'very-weak' | 'weak' | 'fair' | 'good' | 'strong'
+  isValidating: boolean
 } {
   const [validationResult, setValidationResult] =
     useState<PasswordValidationResult>({
       valid: false,
       errors: [],
+      warnings: [],
+      feedback: [],
       score: 0,
     })
+  const [isValidating, setIsValidating] = useState(false)
 
+  // Debounced validation
   useEffect(() => {
-    if (password) {
-      setValidationResult(validatePassword(password, requirements))
-    } else {
-      setValidationResult({ valid: false, errors: [], score: 0 })
+    if (!password) {
+      setValidationResult({
+        valid: false,
+        errors: [],
+        warnings: [],
+        feedback: [],
+        score: 0,
+      })
+      setIsValidating(false)
+      return
     }
-  }, [password, requirements])
+
+    setIsValidating(true)
+    const timeoutId = setTimeout(() => {
+      setValidationResult(validatePassword(password, requirements))
+      setIsValidating(false)
+    }, debounceMs)
+
+    return () => clearTimeout(timeoutId)
+  }, [password, requirements, debounceMs])
 
   const strengthInfo = useMemo(() => {
-    const { score } = validationResult
-
-    if (score >= 80) {
-      return { strengthText: 'Strong', strengthColor: 'success' as const }
-    } else if (score >= 60) {
-      return { strengthText: 'Good', strengthColor: 'info' as const }
-    } else if (score >= 40) {
-      return { strengthText: 'Weak', strengthColor: 'warning' as const }
-    } else {
-      return { strengthText: 'Very Weak', strengthColor: 'error' as const }
-    }
+    return getPasswordStrength(validationResult.score)
   }, [validationResult.score])
 
   return {
     ...validationResult,
-    ...strengthInfo,
+    strengthText: strengthInfo.text,
+    strengthColor: strengthInfo.color,
+    strengthLevel: strengthInfo.level,
+    isValidating,
   }
 }
 
 /**
- * React hook for password confirmation validation
+ * React hook for password confirmation validation with debouncing
  */
 export function usePasswordConfirmation(
   password: string,
-  confirmPassword: string
-) {
+  confirmPassword: string,
+  debounceMs: number = 300
+): {
+  isMatching: boolean
+  showMismatch: boolean
+  error: string | undefined
+  isValidating: boolean
+} {
   const [isMatching, setIsMatching] = useState(false)
   const [showMismatch, setShowMismatch] = useState(false)
+  const [isValidating, setIsValidating] = useState(false)
 
   useEffect(() => {
-    const matches = password === confirmPassword
-    setIsMatching(matches)
-    setShowMismatch(confirmPassword.length > 0 && !matches)
-  }, [password, confirmPassword])
+    if (!confirmPassword) {
+      setIsMatching(false)
+      setShowMismatch(false)
+      setIsValidating(false)
+      return
+    }
+
+    setIsValidating(true)
+    const timeoutId = setTimeout(() => {
+      const matches = password === confirmPassword
+      setIsMatching(matches)
+      setShowMismatch(confirmPassword.length > 0 && !matches)
+      setIsValidating(false)
+    }, debounceMs)
+
+    return () => clearTimeout(timeoutId)
+  }, [password, confirmPassword, debounceMs])
 
   return {
     isMatching,
     showMismatch,
     error: showMismatch ? 'Passwords do not match' : undefined,
+    isValidating,
   }
 }

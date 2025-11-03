@@ -5,6 +5,12 @@
  * These tests hit REAL endpoints - no mocking.
  */
 
+// Polyfill fetch for Node.js < 18 or if not available
+if (typeof global.fetch === 'undefined') {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  global.fetch = require('node-fetch')
+}
+
 const TURKEY_BASE_URL = process.env.TURKEY_BASE_URL || 'http://localhost:3000'
 const TURKEY_APP_ID = process.env.TURKEY_APP_ID || 'test-app'
 
