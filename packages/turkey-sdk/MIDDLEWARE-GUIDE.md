@@ -322,8 +322,277 @@ export function getRouteType(path: string) {
 }
 ```
 
+## Middleware Enhancements
+
+### CORS Configuration
+
+The middleware supports comprehensive CORS (Cross-Origin Resource Sharing) configuration for handling cross-domain requests.
+
+#### Basic CORS Setup
+
+```typescript
+import { createTurkeyMiddleware } from '@jimmyjames88/turkey-sdk/middleware'
+
+const middleware = createTurkeyMiddleware({
+  baseUrl: process.env.TURKEY_BASE_URL!,
+  appId: process.env.TURKEY_APP_ID,
+  cors: true, // Enable CORS with default permissive settings
+})
+
+app.use('/api', middleware)
+```
+
+#### Custom CORS Configuration
+
+```typescript
+const middleware = createTurkeyMiddleware({
+  baseUrl: process.env.TURKEY_BASE_URL!,
+  appId: process.env.TURKEY_APP_ID,
+  cors: {
+    origin: 'https://myapp.com', // Allow specific origin
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    exposedHeaders: ['X-RateLimit-Limit', 'X-RateLimit-Remaining'],
+    credentials: true, // Allow cookies
+    maxAge: 86400, // Preflight cache duration (24 hours)
+  },
+})
+```
+
+#### Dynamic Origin Validation
+
+Allow multiple origins or use a function for complex logic:
+
+```typescript
+// Multiple allowed origins
+const middleware = createTurkeyMiddleware({
+  cors: {
+    origin: [
+      'https://app.example.com',
+      'https://admin.example.com',
+      'https://staging.example.com',
+    ],
+  },
+})
+
+// Dynamic validation with function
+const middleware = createTurkeyMiddleware({
+  cors: {
+    origin: (origin) => {
+      // Allow all subdomains of example.com
+      if (!origin) return true // Allow same-origin requests
+      const allowed = /^https:\/\/([a-z0-9-]+\.)?example\.com$/
+      return allowed.test(origin)
+    },
+    credentials: true,
+  },
+})
+
+// Environment-based CORS
+const middleware = createTurkeyMiddleware({
+  cors: {
+    origin: (origin) => {
+      if (process.env.NODE_ENV === 'development') {
+        return true // Allow all origins in development
+      }
+      const allowed = ['https://myapp.com', 'https://www.myapp.com']
+      return origin ? allowed.includes(origin) : true
+    },
+  },
+})
+```
+
+#### CORS with Rate Limit Headers
+
+The middleware automatically exposes rate limit headers via CORS when available:
+
+```typescript
+const middleware = createTurkeyMiddleware({
+  cors: true,
+  rateLimitHeaders: true, // Exposes X-RateLimit-* headers to clients
+})
+
+// Client-side can now access:
+// X-RateLimit-Limit
+// X-RateLimit-Remaining
+// X-RateLimit-Reset
+```
+
+#### OPTIONS Preflight Handling
+
+The middleware automatically handles OPTIONS preflight requests:
+
+```typescript
+// Preflight requests are handled automatically
+// No additional configuration needed
+
+// GET /api/users → Normal request
+// OPTIONS /api/users → Preflight (returns 204 with CORS headers)
+```
+
+### Request Logging
+
+Configure request logging for debugging and monitoring:
+
+#### Basic Logging
+
+```typescript
+const middleware = createTurkeyMiddleware({
+  baseUrl: process.env.TURKEY_BASE_URL!,
+  appId: process.env.TURKEY_APP_ID,
+  logging: true, // Enable logging with default settings
+})
+
+// Logs output:
+// [TurKey Auth] GET /api/users - Authenticated: user@example.com (user)
+```
+
+#### Custom Logging Configuration
+
+```typescript
+const middleware = createTurkeyMiddleware({
+  logging: {
+    enabled: true,
+    level: 'info', // 'debug' | 'info' | 'warn' | 'error'
+    includeHeaders: true, // Log request headers (sensitive headers redacted)
+    includeQuery: true, // Log query parameters
+    includeBody: false, // Don't log request body (may contain passwords)
+    sensitiveHeaders: ['authorization', 'cookie', 'x-access-token'], // Headers to redact
+  },
+})
+```
+
+#### Custom Logger Integration
+
+Use your own logging library (Winston, Pino, etc.):
+
+```typescript
+import winston from 'winston'
+
+const logger = winston.createLogger({
+  transports: [new winston.transports.Console()],
+})
+
+const middleware = createTurkeyMiddleware({
+  logging: {
+    enabled: true,
+    level: 'info',
+    logger: (level, message, meta) => {
+      logger.log({
+        level,
+        message,
+        ...meta,
+        service: 'turkey-auth',
+        timestamp: new Date().toISOString(),
+      })
+    },
+  },
+})
+```
+
+#### Development vs Production Logging
+
+```typescript
+const middleware = createTurkeyMiddleware({
+  logging: {
+    enabled: true,
+    level: process.env.NODE_ENV === 'development' ? 'debug' : 'info',
+    includeHeaders: process.env.NODE_ENV === 'development',
+    includeBody: process.env.NODE_ENV === 'development',
+    // Production: minimal logging
+    // Development: verbose logging with headers/body
+  },
+})
+```
+
+#### Sensitive Data Redaction
+
+The middleware automatically redacts sensitive headers:
+
+```typescript
+// Default redacted headers:
+// - authorization
+// - cookie
+// - x-access-token
+
+// Customize redaction:
+const middleware = createTurkeyMiddleware({
+  logging: {
+    enabled: true,
+    sensitiveHeaders: [
+      'authorization',
+      'cookie',
+      'x-api-key',
+      'x-secret-token',
+    ],
+  },
+})
+
+// Log output shows:
+// headers: { authorization: '[REDACTED]', 'content-type': 'application/json' }
+```
+
+### Production Configuration Example
+
+Complete production-ready middleware setup:
+
+```typescript
+import { createTurkeyMiddleware } from '@jimmyjames88/turkey-sdk/middleware'
+import pino from 'pino'
+
+const logger = pino({
+  level: process.env.LOG_LEVEL || 'info',
+  transport: {
+    target: 'pino-pretty',
+    options: { colorize: true },
+  },
+})
+
+const middleware = createTurkeyMiddleware({
+  baseUrl: process.env.TURKEY_BASE_URL!,
+  appId: process.env.TURKEY_APP_ID,
+
+  // CORS: Allow specific origins
+  cors: {
+    origin: (origin) => {
+      const allowed = process.env.ALLOWED_ORIGINS?.split(',') || []
+      return origin ? allowed.includes(origin) : true
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+    exposedHeaders: ['X-RateLimit-Limit', 'X-RateLimit-Remaining'],
+    maxAge: 86400,
+  },
+
+  // Logging: Custom logger with Pino
+  logging: {
+    enabled: true,
+    level: 'info',
+    includeQuery: true,
+    includeHeaders: false, // Don't log headers in production
+    includeBody: false, // Never log bodies (may contain sensitive data)
+    logger: (level, message, meta) => {
+      logger[level](
+        {
+          ...meta,
+          component: 'turkey-auth',
+          environment: process.env.NODE_ENV,
+        },
+        message
+      )
+    },
+  },
+
+  // Expose rate limit headers
+  rateLimitHeaders: true,
+})
+
+export default middleware
+```
+
 ## Testing Middleware
 
+````
 ### Testing Protected Routes
 
 ```bash
@@ -397,3 +666,4 @@ Moving from basic auth to TurKey middleware:
 - [Next.js Middleware Example](./examples/middleware/next.ts)
 - [Express Middleware Example](./examples/middleware/express.ts)
 - [Security Best Practices](https://jwt.io/introduction)
+````
