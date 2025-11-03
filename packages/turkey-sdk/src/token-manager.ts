@@ -1,6 +1,14 @@
 import { jwtVerify, createRemoteJWKSet } from 'jose'
 import type { JWTPayload, TurKeyConfig } from './types'
 
+/**
+ * Manages JWT token operations including validation, decoding, and expiry checks.
+ *
+ * Handles JWKS (JSON Web Key Set) fetching and caching for token verification.
+ * Provides both secure server-side verification and client-side utilities.
+ *
+ * @internal This class is used internally by TurKeyClient
+ */
 export class TokenManager {
   private jwks: ReturnType<typeof createRemoteJWKSet> | null = null
   private config: TurKeyConfig
@@ -21,14 +29,35 @@ export class TokenManager {
   }
 
   /**
-   * Client-side token format validation for UI purposes only.
-   * ⚠️  WARNING: This is NOT secure for authorization decisions!
-   * ⚠️  Always use server-side verifyJwt() for auth/authz.
+   * Validate JWT token format and signature using JWKS.
    *
-   * Use cases:
-   * - Validating token format before sending to server
-   * - Client-side error handling and user feedback
-   * - Development/debugging token issues
+   * ⚠️ SECURITY WARNING ⚠️
+   * This is client-side validation and should ONLY be used for:
+   * - UI/UX decisions (showing/hiding elements)
+   * - Format validation before API calls
+   * - Development and debugging
+   *
+   * NEVER use for authorization decisions! Always verify tokens
+   * server-side using verifyJwt() for security-critical operations.
+   *
+   * @param token - JWT token to validate
+   * @param expectedAppId - Expected audience/app ID (defaults to config)
+   * @returns Decoded and validated JWT payload
+   * @throws {Error} Invalid token format, expired, or signature mismatch
+   *
+   * @example
+   * ```typescript
+   * // ✅ Good: UI validation
+   * try {
+   *   const payload = await tokenManager.validateTokenFormat(token);
+   *   showUserDashboard(payload);
+   * } catch {
+   *   showLoginForm();
+   * }
+   *
+   * // ❌ Bad: Authorization decision
+   * // if (payload.role === 'admin') { grantAccess() } // INSECURE!
+   * ```
    */
   async validateTokenFormat(
     token: string,
@@ -62,7 +91,21 @@ export class TokenManager {
   }
 
   /**
-   * Check if token is expired
+   * Check if a JWT token has expired.
+   *
+   * Decodes token and compares exp (expiration) claim with current time.
+   * Returns true if decoding fails or token is past expiration.
+   *
+   * @param token - JWT token to check
+   * @returns true if expired or invalid, false if still valid
+   *
+   * @example
+   * ```typescript
+   * if (tokenManager.isTokenExpired(accessToken)) {
+   *   // Initiate token refresh
+   *   await refreshTokens();
+   * }
+   * ```
    */
   isTokenExpired(token: string): boolean {
     try {
@@ -75,7 +118,27 @@ export class TokenManager {
   }
 
   /**
-   * Decode token without verification (for client-side inspection)
+   * Decode JWT token payload without cryptographic verification.
+   *
+   * Extracts and parses the base64-encoded payload section of the JWT.
+   * Does NOT validate:
+   * - Token signature
+   * - Expiration time
+   * - Issuer or audience
+   *
+   * Use only for client-side inspection, never for security decisions.
+   *
+   * @param token - JWT token to decode (format: header.payload.signature)
+   * @returns Decoded JWT payload object
+   * @throws {Error} Invalid token format or malformed base64
+   *
+   * @example
+   * ```typescript
+   * const payload = tokenManager.decodeToken(token);
+   * console.log('User ID:', payload.sub);
+   * console.log('Email:', payload.email);
+   * console.log('Expires:', new Date(payload.exp * 1000));
+   * ```
    */
   decodeToken(token: string): JWTPayload {
     try {
@@ -100,7 +163,25 @@ export class TokenManager {
   }
 
   /**
-   * Get time until token expires (in seconds)
+   * Calculate seconds remaining until token expires.
+   *
+   * Decodes token and calculates time difference between exp claim
+   * and current time. Returns 0 if token is expired or invalid.
+   *
+   * @param token - JWT token to check
+   * @returns Seconds until expiration (0 if expired or invalid)
+   *
+   * @example
+   * ```typescript
+   * const timeLeft = tokenManager.getTimeUntilExpiry(token);
+   *
+   * if (timeLeft < 300) { // Less than 5 minutes
+   *   showWarning('Session expiring soon!');
+   * }
+   *
+   * const minutes = Math.floor(timeLeft / 60);
+   * updateUI(`Session: ${minutes}m remaining`);
+   * ```
    */
   getTimeUntilExpiry(token: string): number {
     try {
@@ -113,7 +194,21 @@ export class TokenManager {
   }
 
   /**
-   * Extract user info from token
+   * Extract user information from a JWT token.
+   *
+   * Convenience method that decodes the token and returns
+   * commonly-needed user fields (id, email, role).
+   *
+   * @param token - JWT token containing user claims
+   * @returns User object with id (sub), email, and role
+   * @throws {Error} Invalid token format
+   *
+   * @example
+   * ```typescript
+   * const user = tokenManager.getUserFromToken(token);
+   * console.log(`User: ${user.email} (${user.role})`);
+   * console.log(`ID: ${user.id}`);
+   * ```
    */
   getUserFromToken(token: string): {
     id: string

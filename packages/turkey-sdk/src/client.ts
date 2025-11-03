@@ -24,12 +24,46 @@ import {
 import { TokenManager } from './token-manager'
 import { validatePassword } from './password-validation'
 
+/**
+ * Main client for TurKey authentication service.
+ *
+ * Provides methods for user authentication, token management, and profile operations.
+ * Includes automatic retry logic with exponential backoff for transient failures.
+ *
+ * @example
+ * ```typescript
+ * const client = new TurKeyClient({
+ *   baseUrl: 'https://auth.example.com',
+ *   appId: 'my-app',
+ *   retry: { maxAttempts: 3 }
+ * });
+ *
+ * // Login
+ * const { user, accessToken, refreshToken } = await client.login({
+ *   email: 'user@example.com',
+ *   password: 'password'
+ * });
+ *
+ * // Get current user
+ * const currentUser = await client.getCurrentUser(accessToken);
+ * ```
+ */
 export class TurKeyClient {
   private config: TurKeyConfig
   private tokenManager: TokenManager
   private retryConfig: RetryConfig
   private refreshPromise: Promise<TokenPair> | null = null
 
+  /**
+   * Create a new TurKey client instance.
+   *
+   * @param config - Client configuration
+   * @param config.baseUrl - Base URL of the TurKey authentication server
+   * @param config.appId - Optional application identifier for token scoping
+   * @param config.timeout - Request timeout in milliseconds (default: 10000)
+   * @param config.serviceApiKey - Service API key for backend-to-backend calls
+   * @param config.retry - Retry configuration or false to disable (default: enabled with 3 attempts)
+   */
   constructor(config: TurKeyConfig) {
     this.config = {
       timeout: 10000,
@@ -191,7 +225,38 @@ export class TurKeyClient {
   }
 
   /**
-   * Login user and return authentication response
+   * Authenticate a user with email and password.
+   *
+   * Returns user information and token pair (access + refresh tokens).
+   * Access tokens are short-lived and used for API authentication.
+   * Refresh tokens are long-lived and used to obtain new access tokens.
+   *
+   * @param params - Login credentials
+   * @param params.email - User's email address
+   * @param params.password - User's password
+   * @param params.appId - Optional app ID (defaults to client config)
+   * @returns Authentication response with user info and tokens
+   * @throws {AuthenticationError} Invalid credentials
+   * @throws {ValidationError} Invalid email format or missing fields
+   * @throws {RateLimitError} Too many login attempts
+   * @throws {NetworkError} Network or timeout issues
+   *
+   * @example
+   * ```typescript
+   * try {
+   *   const { user, accessToken, refreshToken } = await client.login({
+   *     email: 'user@example.com',
+   *     password: 'SecurePass123!'
+   *   });
+   *   // Store tokens securely
+   *   storage.setItem('accessToken', accessToken);
+   *   storage.setItem('refreshToken', refreshToken);
+   * } catch (error) {
+   *   if (error instanceof AuthenticationError) {
+   *     console.error('Invalid credentials');
+   *   }
+   * }
+   * ```
    */
   async login(params: LoginRequest): Promise<AuthResponse> {
     const requestData = {
@@ -211,7 +276,39 @@ export class TurKeyClient {
   }
 
   /**
-   * Register new user and return authentication response
+   * Register a new user account.
+   *
+   * Creates a new user with email and password, then returns authentication tokens.
+   * Password validation is performed client-side by default (can be disabled).
+   *
+   * @param params - Registration information
+   * @param params.email - User's email address (must be unique)
+   * @param params.password - User's password (must meet strength requirements)
+   * @param params.role - User role (default: 'user')
+   * @param params.appId - Optional app ID (defaults to client config)
+   * @param params.validatePassword - Whether to validate password strength client-side (default: true)
+   * @returns Authentication response with user info and tokens
+   * @throws {ValidationError} Invalid email, weak password, or missing fields
+   * @throws {ConflictError} Email already registered
+   * @throws {RateLimitError} Too many registration attempts
+   * @throws {NetworkError} Network or timeout issues
+   *
+   * @example
+   * ```typescript
+   * try {
+   *   const { user, accessToken, refreshToken } = await client.register({
+   *     email: 'newuser@example.com',
+   *     password: 'SecurePass123!',
+   *     role: 'user'
+   *   });
+   * } catch (error) {
+   *   if (error instanceof ValidationError) {
+   *     console.error('Validation failed:', error.details);
+   *   } else if (error instanceof ConflictError) {
+   *     console.error('Email already exists');
+   *   }
+   * }
+   * ```
    */
   async register(
     params: RegisterRequest & { validatePassword?: boolean }
@@ -252,7 +349,30 @@ export class TurKeyClient {
   }
 
   /**
-   * Refresh access token with token refresh queue to prevent race conditions
+   * Refresh an expired or expiring access token.
+   *
+   * Uses a refresh token to obtain a new access token and refresh token pair.
+   * Implements token refresh queue to prevent race conditions when multiple
+   * requests attempt to refresh simultaneously (thundering herd protection).
+   *
+   * @param params - Refresh parameters
+   * @param params.refreshToken - Valid refresh token
+   * @param params.appId - Optional app ID (defaults to client config)
+   * @returns New token pair with updated expiry
+   * @throws {AuthenticationError} Invalid or expired refresh token
+   * @throws {RateLimitError} Too many refresh attempts
+   * @throws {NetworkError} Network or timeout issues
+   *
+   * @example
+   * ```typescript
+   * // Automatic refresh when token expires soon
+   * if (client.getTimeUntilExpiry(accessToken) < 300) { // Less than 5 minutes
+   *   const { accessToken: newToken, refreshToken: newRefresh } =
+   *     await client.refresh({ refreshToken });
+   *   storage.setItem('accessToken', newToken);
+   *   storage.setItem('refreshToken', newRefresh);
+   * }
+   * ```
    */
   async refresh(params: RefreshRequest): Promise<TokenPair> {
     // If a refresh is already in progress, return the same promise
@@ -283,7 +403,21 @@ export class TurKeyClient {
   }
 
   /**
-   * Logout user (invalidate current session)
+   * Logout from current session.
+   *
+   * Invalidates the provided refresh token on the server, effectively ending
+   * the user's session. The user will need to login again to obtain new tokens.
+   *
+   * @param refreshToken - Refresh token to invalidate
+   * @throws {AuthenticationError} Invalid refresh token
+   * @throws {NetworkError} Network or timeout issues
+   *
+   * @example
+   * ```typescript
+   * await client.logout(refreshToken);
+   * storage.removeItem('accessToken');
+   * storage.removeItem('refreshToken');
+   * ```
    */
   async logout(refreshToken: string): Promise<void> {
     await this.requestWithRetry('/v1/auth/logout', {
@@ -296,7 +430,23 @@ export class TurKeyClient {
   }
 
   /**
-   * Logout from all devices (invalidate all sessions)
+   * Logout from all sessions on all devices.
+   *
+   * Invalidates ALL refresh tokens for the user across all devices and sessions.
+   * This is a security measure useful when a user suspects unauthorized access
+   * or wants to force re-authentication everywhere.
+   *
+   * @param refreshToken - Any valid refresh token for the user
+   * @throws {AuthenticationError} Invalid refresh token
+   * @throws {NetworkError} Network or timeout issues
+   *
+   * @example
+   * ```typescript
+   * // User clicked "Logout from all devices"
+   * await client.logoutAll(refreshToken);
+   * storage.clear();
+   * router.push('/login');
+   * ```
    */
   async logoutAll(refreshToken: string): Promise<void> {
     await this.requestWithRetry('/v1/auth/logout-all', {
@@ -309,8 +459,25 @@ export class TurKeyClient {
   }
 
   /**
-   * Introspect an access or refresh token server-side
-   * Requires service API key if server has TURKEY_SERVICE_API_KEY configured
+   * Introspect a token to check its validity and get payload information.
+   *
+   * This is a server-side operation that verifies token signature and returns
+   * detailed information about the token. Requires service API key if the
+   * TurKey server has TURKEY_SERVICE_API_KEY configured.
+   *
+   * @param token - Access or refresh token to introspect
+   * @returns Introspection result with token status and payload
+   * @throws {AuthenticationError} Invalid service API key
+   * @throws {NetworkError} Network or timeout issues
+   *
+   * @example
+   * ```typescript
+   * const result = await client.introspect(accessToken);
+   * if (result.active) {
+   *   console.log('Token valid until:', result.expiresAt);
+   *   console.log('User ID:', result.userId);
+   * }
+   * ```
    */
   async introspect(token: string): Promise<IntrospectionResult> {
     const response = await this.requestWithRetry<{ data: IntrospectionResult }>(
@@ -325,9 +492,21 @@ export class TurKeyClient {
   }
 
   /**
-   * Revoke a token (access or refresh)
-   * @param token - The token to revoke
-   * @param reason - Optional reason for revocation (for audit logs)
+   * Revoke a single token (access or refresh).
+   *
+   * Permanently invalidates the token, ensuring it cannot be used even if
+   * intercepted. More secure than regular logout for sensitive operations.
+   *
+   * @param token - Token to revoke (access or refresh)
+   * @param reason - Optional reason for audit logging
+   * @throws {AuthenticationError} Invalid token
+   * @throws {NetworkError} Network or timeout issues
+   *
+   * @example
+   * ```typescript
+   * // Revoke compromised token
+   * await client.revoke(suspiciousToken, 'Security incident');
+   * ```
    */
   async revoke(token: string, reason?: string): Promise<void> {
     await this.requestWithRetry('/v1/auth/revoke', {
@@ -337,11 +516,24 @@ export class TurKeyClient {
   }
 
   /**
-   * Revoke both access and refresh tokens (complete logout with revocation)
-   * This is more secure than regular logout as it ensures tokens cannot be used even if intercepted
-   * @param accessToken - Current access token
-   * @param refreshToken - Current refresh token
-   * @param reason - Optional reason for revocation
+   * Revoke both access and refresh tokens (secure logout).
+   *
+   * Invalidates both tokens, providing more security than regular logout.
+   * Ensures tokens cannot be used even if intercepted during transmission
+   * or if stored insecurely.
+   *
+   * @param accessToken - Current access token to revoke
+   * @param refreshToken - Current refresh token to revoke
+   * @param reason - Optional reason for audit logging
+   * @throws {AuthenticationError} Invalid tokens
+   * @throws {NetworkError} Network or timeout issues
+   *
+   * @example
+   * ```typescript
+   * // Secure logout with token revocation
+   * await client.revokeAll(accessToken, refreshToken, 'User logout');
+   * storage.clear();
+   * ```
    */
   async revokeAll(
     accessToken: string,
@@ -354,7 +546,22 @@ export class TurKeyClient {
   }
 
   /**
-   * Get current user info from access token
+   * Get current authenticated user's information.
+   *
+   * Retrieves user profile from the server using an access token.
+   * Useful for fetching latest user data after login or profile updates.
+   *
+   * @param accessToken - Valid access token
+   * @returns User profile information
+   * @throws {AuthenticationError} Invalid or expired access token
+   * @throws {NetworkError} Network or timeout issues
+   *
+   * @example
+   * ```typescript
+   * const user = await client.getCurrentUser(accessToken);
+   * console.log(`Logged in as: ${user.email}`);
+   * console.log(`Role: ${user.role}`);
+   * ```
    */
   async getCurrentUser(accessToken: string): Promise<User> {
     const response = await this.requestWithRetry<{ data: User }>(
@@ -371,10 +578,32 @@ export class TurKeyClient {
   }
 
   /**
-   * Update current user's profile
-   * Requires valid access token
-   * @param accessToken - Current access token
-   * @param updates - Profile fields to update (currently only email)
+   * Update the current user's profile information.
+   *
+   * Currently supports updating email address. Requires valid access token.
+   *
+   * @param accessToken - Valid access token
+   * @param updates - Profile fields to update
+   * @param updates.email - New email address (must be unique)
+   * @returns Update response with new user data
+   * @throws {ValidationError} Invalid email format or missing fields
+   * @throws {ConflictError} Email already in use by another account
+   * @throws {AuthenticationError} Invalid or expired access token
+   * @throws {NetworkError} Network or timeout issues
+   *
+   * @example
+   * ```typescript
+   * try {
+   *   const result = await client.updateProfile(accessToken, {
+   *     email: 'newemail@example.com'
+   *   });
+   *   console.log('Profile updated:', result.user);
+   * } catch (error) {
+   *   if (error instanceof ConflictError) {
+   *     console.error('Email already taken');
+   *   }
+   * }
+   * ```
    */
   async updateProfile(
     accessToken: string,
@@ -410,11 +639,39 @@ export class TurKeyClient {
   }
 
   /**
-   * Change current user's password
-   * Requires valid access token
-   * Note: This will revoke all refresh tokens, requiring re-authentication on all devices
-   * @param accessToken - Current access token
-   * @param params - Current and new password
+   * Change the current user's password.
+   *
+   * Validates password strength and updates the password. This operation
+   * revokes ALL refresh tokens, requiring re-authentication on all devices
+   * for security purposes.
+   *
+   * @param accessToken - Valid access token
+   * @param params - Password change parameters
+   * @param params.currentPassword - User's current password for verification
+   * @param params.newPassword - New password (must meet strength requirements)
+   * @returns Change response indicating success and re-auth requirement
+   * @throws {ValidationError} Weak password, missing fields, or same as current
+   * @throws {AuthenticationError} Invalid current password or expired token
+   * @throws {NetworkError} Network or timeout issues
+   *
+   * @example
+   * ```typescript
+   * try {
+   *   const result = await client.changePassword(accessToken, {
+   *     currentPassword: 'OldPass123!',
+   *     newPassword: 'NewSecurePass456!'
+   *   });
+   *
+   *   if (result.requiresReauthentication) {
+   *     // All other sessions invalidated
+   *     console.log('Please login again on other devices');
+   *   }
+   * } catch (error) {
+   *   if (error instanceof AuthenticationError) {
+   *     console.error('Current password is incorrect');
+   *   }
+   * }
+   * ```
    */
   async changePassword(
     accessToken: string,
@@ -490,10 +747,32 @@ export class TurKeyClient {
   }
 
   /**
-   * Delete current user's account
-   * Requires valid access token
-   * Warning: This action is irreversible
-   * @param accessToken - Current access token
+   * Permanently delete the current user's account.
+   *
+   * ⚠️ WARNING: This action is irreversible! ⚠️
+   *
+   * Deletes all user data including profile, sessions, and tokens.
+   * Use with caution and always confirm with the user before calling.
+   *
+   * @param accessToken - Valid access token
+   * @returns Deletion response with deleted user information
+   * @throws {AuthenticationError} Invalid or expired access token
+   * @throws {NetworkError} Network or timeout issues
+   *
+   * @example
+   * ```typescript
+   * // Always confirm with user first!
+   * const confirmed = await showConfirmDialog(
+   *   'Are you sure? This action cannot be undone.'
+   * );
+   *
+   * if (confirmed) {
+   *   const result = await client.deleteAccount(accessToken);
+   *   console.log('Account deleted:', result.deletedUser.email);
+   *   storage.clear();
+   *   router.push('/goodbye');
+   * }
+   * ```
    */
   async deleteAccount(accessToken: string): Promise<DeleteAccountResponse> {
     const response = await this.requestWithRetry<DeleteAccountResponse>(
@@ -510,9 +789,41 @@ export class TurKeyClient {
   }
 
   /**
-   * Client-side token format validation for UI purposes only.
-   * ⚠️  WARNING: This is NOT secure for authorization decisions!
-   * ⚠️  Always use server-side verifyJwt() for auth/authz.
+   * Validate JWT token format client-side (UI purposes only).
+   *
+   * ⚠️ SECURITY WARNING ⚠️
+   * This performs format validation but is NOT secure for authorization!
+   * Client-side validation can be bypassed. Always use server-side
+   * verifyJwt() for actual authentication/authorization decisions.
+   *
+   * Valid use cases:
+   * - Validating token format before API calls
+   * - Providing immediate user feedback on token issues
+   * - Development/debugging
+   *
+   * Invalid use cases:
+   * - Authorizing access to protected resources
+   * - Making security decisions based on token validity
+   *
+   * @param token - JWT token to validate
+   * @param appId - Expected app ID (defaults to client config)
+   * @returns Decoded JWT payload if valid format
+   * @throws {Error} Invalid token format, signature, or app ID mismatch
+   *
+   * @example
+   * ```typescript
+   * // ✅ Good: UI validation before API call
+   * try {
+   *   await client.validateTokenFormat(token);
+   *   // Token format is valid, proceed with API call
+   * } catch (error) {
+   *   showError('Invalid token, please login again');
+   * }
+   *
+   * // ❌ Bad: Using for authorization
+   * // const payload = await client.validateTokenFormat(token);
+   * // if (payload.role === 'admin') { ... } // INSECURE!
+   * ```
    */
   async validateTokenFormat(token: string, appId?: string) {
     return this.tokenManager.validateTokenFormat(token, appId)
@@ -527,21 +838,71 @@ export class TurKeyClient {
   }
 
   /**
-   * Check if token is expired
+   * Check if a JWT token is expired.
+   *
+   * Decodes the token and compares the expiration time (exp claim)
+   * with current time. Useful for determining when to refresh tokens.
+   *
+   * @param token - JWT token to check
+   * @returns true if token is expired, false if still valid
+   *
+   * @example
+   * ```typescript
+   * if (client.isTokenExpired(accessToken)) {
+   *   // Token expired, refresh it
+   *   const newTokens = await client.refresh({ refreshToken });
+   *   accessToken = newTokens.accessToken;
+   * }
+   * ```
    */
   isTokenExpired(token: string): boolean {
     return this.tokenManager.isTokenExpired(token)
   }
 
   /**
-   * Decode token without verification
+   * Decode a JWT token without cryptographic verification.
+   *
+   * Extracts and parses the JWT payload for client-side inspection.
+   * Does NOT validate signature, expiration, or issuer.
+   *
+   * ⚠️ Use only for UI/UX decisions, never for authorization!
+   *
+   * @param token - JWT token to decode
+   * @returns Decoded JWT payload
+   * @throws {Error} Invalid token format
+   *
+   * @example
+   * ```typescript
+   * const payload = client.decodeToken(accessToken);
+   * console.log(`Logged in as: ${payload.email}`);
+   * console.log(`Token expires: ${new Date(payload.exp * 1000)}`);
+   * ```
    */
   decodeToken(token: string) {
     return this.tokenManager.decodeToken(token)
   }
 
   /**
-   * Get user info from token
+   * Extract user information from a JWT token.
+   *
+   * Convenience method that decodes token and returns user-specific fields.
+   * Returns null if token is invalid instead of throwing.
+   *
+   * @param token - JWT token containing user information
+   * @returns User object with id, email, and role, or null if invalid
+   *
+   * @example
+   * ```typescript
+   * const user = client.getUserFromToken(accessToken);
+   * if (user) {
+   *   console.log(`Welcome, ${user.email}!`);
+   *   if (user.role === 'admin') {
+   *     showAdminPanel();
+   *   }
+   * } else {
+   *   redirectToLogin();
+   * }
+   * ```
    */
   getUserFromToken(token: string) {
     try {
@@ -552,7 +913,28 @@ export class TurKeyClient {
   }
 
   /**
-   * Get time until token expires
+   * Get time remaining until token expires.
+   *
+   * Calculates seconds remaining before token expiration.
+   * Useful for implementing auto-refresh logic or showing
+   * session timeout warnings to users.
+   *
+   * @param token - JWT token to check
+   * @returns Seconds until expiration (0 if already expired or invalid)
+   *
+   * @example
+   * ```typescript
+   * const secondsLeft = client.getTimeUntilExpiry(accessToken);
+   *
+   * if (secondsLeft < 300) { // Less than 5 minutes
+   *   console.log('Token expiring soon, refreshing...');
+   *   await client.refresh({ refreshToken });
+   * }
+   *
+   * // Show countdown to user
+   * const minutes = Math.floor(secondsLeft / 60);
+   * console.log(`Session expires in ${minutes} minutes`);
+   * ```
    */
   getTimeUntilExpiry(token: string): number {
     return this.tokenManager.getTimeUntilExpiry(token)
