@@ -71,7 +71,7 @@ export type {
 
 export type { RevocationCheckResult } from './server/revocation'
 
-// Error classes (NEW - granular error types)
+//  Error classes (NEW - granular error types)
 export {
   TurKeyError as TurKeyErrorBase,
   NetworkError,
@@ -82,6 +82,8 @@ export {
   ServerError,
   ConfigurationError,
   TokenError,
+  ConflictError,
+  NotFoundError,
   createErrorFromResponse,
   isTurKeyError,
   isRetryableError,

@@ -334,6 +334,76 @@ export class ServerError extends TurKeyError {
 }
 
 /**
+ * Conflict errors (resource already exists, duplicate entry).
+ *
+ * These errors are **NOT retryable** (isRetryable = false) without changing data.
+ * Common causes:
+ * - Email already registered
+ * - Duplicate username
+ * - Resource already exists
+ * - Unique constraint violation
+ *
+ * @example
+ * ```typescript
+ * catch (error) {
+ *   if (error instanceof ConflictError) {
+ *     showError('This email is already registered');
+ *   }
+ * }
+ * ```
+ */
+export class ConflictError extends TurKeyError {
+  constructor(
+    message: string,
+    options: {
+      details?: ErrorDetail[]
+      cause?: Error
+    } = {}
+  ) {
+    super(message, 'CONFLICT_ERROR', {
+      ...options,
+      statusCode: 409,
+      isRetryable: false,
+    })
+  }
+}
+
+/**
+ * Not found errors (resource does not exist).
+ *
+ * These errors are **NOT retryable** (isRetryable = false).
+ * Common causes:
+ * - User not found
+ * - Token not found
+ * - Resource ID invalid
+ * - Endpoint does not exist
+ *
+ * @example
+ * ```typescript
+ * catch (error) {
+ *   if (error instanceof NotFoundError) {
+ *     showError('User not found');
+ *   }
+ * }
+ * ```
+ */
+export class NotFoundError extends TurKeyError {
+  constructor(
+    message: string,
+    options: {
+      details?: ErrorDetail[]
+      cause?: Error
+    } = {}
+  ) {
+    super(message, 'NOT_FOUND_ERROR', {
+      ...options,
+      statusCode: 404,
+      isRetryable: false,
+    })
+  }
+}
+
+/**
  * Configuration errors (missing required settings, invalid config values).
  *
  * These errors are **NOT retryable** (isRetryable = false) without fixing config.
@@ -494,6 +564,22 @@ export function createErrorFromResponse(
   // Validation errors
   if (status === 400 || status === 422) {
     return new ValidationError(message, {
+      details,
+      cause: originalError,
+    })
+  }
+
+  // Not Found errors
+  if (status === 404) {
+    return new NotFoundError(message, {
+      details,
+      cause: originalError,
+    })
+  }
+
+  // Conflict errors
+  if (status === 409) {
+    return new ConflictError(message, {
       details,
       cause: originalError,
     })
