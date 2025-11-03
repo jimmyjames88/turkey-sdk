@@ -60,6 +60,35 @@ export interface TurKeyMiddlewareConfig {
   development?: boolean
   checkRevocation?: boolean // Default: true - check if tokens have been revoked
   serviceApiKey?: string // Service API key for revocation checks (backend-to-backend)
+  cors?: CorsConfig | boolean // CORS configuration - true for defaults, false to disable, or custom config
+  logging?: LoggingConfig | boolean // Request logging - true for defaults, false to disable, or custom config
+  rateLimitHeaders?: boolean // Expose rate limit headers (default: true)
+}
+
+/**
+ * CORS configuration
+ */
+export interface CorsConfig {
+  origin?: string | string[] | ((origin: string) => boolean)
+  methods?: string[]
+  allowedHeaders?: string[]
+  exposedHeaders?: string[]
+  credentials?: boolean
+  maxAge?: number
+  optionsSuccessStatus?: number
+}
+
+/**
+ * Logging configuration
+ */
+export interface LoggingConfig {
+  enabled?: boolean
+  level?: 'debug' | 'info' | 'warn' | 'error'
+  includeHeaders?: boolean
+  includeBody?: boolean
+  includeQuery?: boolean
+  sensitiveHeaders?: string[] // Headers to redact (e.g., 'authorization', 'cookie')
+  logger?: (message: string, level: string, metadata?: any) => void
 }
 
 /**

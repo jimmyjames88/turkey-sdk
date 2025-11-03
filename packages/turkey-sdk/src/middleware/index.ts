@@ -17,6 +17,8 @@ export type {
   TurKeyPayload,
   TurKeyAuthenticatedRequest,
   TurKeyMiddlewareConfig,
+  CorsConfig,
+  LoggingConfig,
   ExpressAuthRequest,
   NextAuthRequest,
 } from './types'
