@@ -96,7 +96,7 @@
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [
-      "eslint --fix --max-warnings=100",
+      "eslint --fix --max-warnings=100 --ignore-path .eslintignore",
       "prettier --write"
     ],
     "*.{json,md,yml,yaml}": [

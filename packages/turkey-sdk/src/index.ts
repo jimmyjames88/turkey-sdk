@@ -24,6 +24,7 @@ export {
   validatePassword,
   generateSecurePassword,
   getPasswordRequirementsText,
+  getPasswordStrength,
   DEFAULT_PASSWORD_REQUIREMENTS,
   type PasswordValidationResult,
   type PasswordRequirements,
@@ -50,11 +51,17 @@ export {
 // Types
 export type {
   TurKeyConfig,
+  RetryConfig,
   LoginRequest,
   RegisterRequest,
   RefreshRequest,
+  UpdateProfileRequest,
+  ChangePasswordRequest,
   AuthResponse,
   TokenPair,
+  UpdateProfileResponse,
+  ChangePasswordResponse,
+  DeleteAccountResponse,
   User,
   JWTPayload,
   TurKeyError,
@@ -64,6 +71,23 @@ export type {
 
 export type { RevocationCheckResult } from './server/revocation'
 
+// Error classes (NEW - granular error types)
+export {
+  TurKeyError as TurKeyErrorBase,
+  NetworkError,
+  AuthenticationError,
+  AuthorizationError,
+  ValidationError,
+  RateLimitError,
+  ServerError,
+  ConfigurationError,
+  TokenError,
+  createErrorFromResponse,
+  isTurKeyError,
+  isRetryableError,
+} from './errors'
+
+// Legacy error export for backwards compatibility
 export { TurKeyAuthError } from './types'
 
 // Default export for convenience

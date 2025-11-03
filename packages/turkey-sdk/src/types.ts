@@ -1,3 +1,36 @@
+export interface RetryConfig {
+  /**
+   * Maximum number of retry attempts for retryable errors
+   * @default 3
+   */
+  maxAttempts?: number
+  /**
+   * Initial delay in milliseconds before first retry
+   * @default 1000
+   */
+  initialDelayMs?: number
+  /**
+   * Maximum delay in milliseconds between retries
+   * @default 30000 (30 seconds)
+   */
+  maxDelayMs?: number
+  /**
+   * Multiplier for exponential backoff
+   * @default 2
+   */
+  backoffMultiplier?: number
+  /**
+   * Whether to add random jitter to retry delays (helps prevent thundering herd)
+   * @default true
+   */
+  jitter?: boolean
+  /**
+   * Function to determine if an error should be retried
+   * Overrides default isRetryable check
+   */
+  shouldRetry?: (error: unknown, attempt: number) => boolean
+}
+
 export interface TurKeyConfig {
   baseUrl: string
   appId?: string
@@ -8,6 +41,12 @@ export interface TurKeyConfig {
    * Set this to match TURKEY_SERVICE_API_KEY on the server
    */
   serviceApiKey?: string
+  /**
+   * Retry configuration for transient failures
+   * Set to false to disable automatic retries
+   * @default { maxAttempts: 3, initialDelayMs: 1000, maxDelayMs: 30000, backoffMultiplier: 2, jitter: true }
+   */
+  retry?: RetryConfig | false
 }
 
 export interface LoginRequest {
@@ -26,6 +65,33 @@ export interface RegisterRequest {
 export interface RefreshRequest {
   refreshToken: string
   appId?: string
+}
+
+export interface UpdateProfileRequest {
+  email?: string
+}
+
+export interface ChangePasswordRequest {
+  currentPassword: string
+  newPassword: string
+}
+
+export interface UpdateProfileResponse {
+  message: string
+  user: User
+}
+
+export interface ChangePasswordResponse {
+  message: string
+  requiresReauthentication: boolean
+}
+
+export interface DeleteAccountResponse {
+  message: string
+  deletedUser: {
+    id: string
+    email: string
+  }
 }
 
 export interface AuthResponse {

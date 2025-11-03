@@ -668,6 +668,190 @@ async function handleLogout() {
 
 ---
 
+##### Profile Management Methods
+
+###### `getCurrentUser(accessToken: string): Promise<User>`
+
+Get current user's profile information.
+
+**Parameters:**
+
+- `accessToken: string` - Valid access token
+
+**Returns:**
+
+```typescript
+interface User {
+  id: string
+  email: string
+  role: string
+}
+```
+
+**Example:**
+
+```typescript
+try {
+  const user = await client.getCurrentUser(accessToken)
+  console.log('User profile:', user)
+} catch (error) {
+  console.error('Failed to fetch user:', error)
+}
+```
+
+---
+
+###### `updateProfile(accessToken: string, updates: UpdateProfileRequest): Promise<UpdateProfileResponse>`
+
+Update current user's profile (email only for now).
+
+**Parameters:**
+
+```typescript
+interface UpdateProfileRequest {
+  email?: string // New email address
+}
+```
+
+**Returns:**
+
+```typescript
+interface UpdateProfileResponse {
+  message: string
+  user: User // Updated user object
+}
+```
+
+**Example:**
+
+```typescript
+try {
+  const result = await client.updateProfile(accessToken, {
+    email: 'newemail@example.com',
+  })
+
+  console.log(result.message) // "Profile updated successfully"
+  console.log('Updated user:', result.user)
+} catch (error) {
+  if (error instanceof ValidationError) {
+    console.error('Validation failed:', error.details)
+  } else if (error instanceof AuthenticationError) {
+    console.error('Token expired or invalid')
+  }
+}
+```
+
+---
+
+###### `changePassword(accessToken: string, params: ChangePasswordRequest): Promise<ChangePasswordResponse>`
+
+Change current user's password.
+
+⚠️ **Important:** This will revoke all refresh tokens, requiring re-authentication on all devices.
+
+**Parameters:**
+
+```typescript
+interface ChangePasswordRequest {
+  currentPassword: string // Current password for verification
+  newPassword: string // New password (must pass strength validation)
+}
+```
+
+**Returns:**
+
+```typescript
+interface ChangePasswordResponse {
+  message: string
+  requiresReauthentication: boolean // Always true after password change
+}
+```
+
+**Example:**
+
+```typescript
+try {
+  const result = await client.changePassword(accessToken, {
+    currentPassword: 'OldPassword123!',
+    newPassword: 'NewSecurePassword456!',
+  })
+
+  console.log(result.message)
+
+  if (result.requiresReauthentication) {
+    // All refresh tokens are revoked, redirect to login
+    storage.clearTokens()
+    router.push('/auth/login')
+  }
+} catch (error) {
+  if (error instanceof ValidationError) {
+    // Display field-specific errors (weak password, same password, etc.)
+    error.details?.forEach((detail) => {
+      console.error(`${detail.field}: ${detail.message}`)
+    })
+  } else if (error instanceof AuthenticationError) {
+    console.error('Current password is incorrect')
+  }
+}
+```
+
+**Client-side validation:**
+
+- Validates current password is provided
+- Validates new password is provided
+- Prevents using the same password
+- Validates new password strength automatically
+
+---
+
+###### `deleteAccount(accessToken: string): Promise<DeleteAccountResponse>`
+
+Delete current user's account permanently.
+
+⚠️ **Warning:** This action is irreversible. All user data will be deleted.
+
+**Returns:**
+
+```typescript
+interface DeleteAccountResponse {
+  message: string
+  deletedUser: {
+    id: string
+    email: string
+  }
+}
+```
+
+**Example:**
+
+```typescript
+try {
+  // Show confirmation dialog first
+  if (
+    !confirm(
+      'Are you sure you want to delete your account? This action cannot be undone.'
+    )
+  ) {
+    return
+  }
+
+  const result = await client.deleteAccount(accessToken)
+
+  console.log(result.message)
+  console.log('Deleted account:', result.deletedUser)
+
+  // Clear tokens and redirect
+  storage.clearTokens()
+  router.push('/')
+} catch (error) {
+  console.error('Failed to delete account:', error)
+}
+```
+
+For comprehensive profile management examples, see [`examples/profile-management.ts`](./examples/profile-management.ts).
+
+---
+
 ##### Token Verification Methods
 
 ###### `validateTokenFormat(token: string, appId?: string): Promise<JWTPayload>`
@@ -2196,20 +2380,258 @@ NEXT_PUBLIC_TURKEY_AUDIENCE=my-app
 
 ## Error Handling
 
+The SDK provides a comprehensive error type system for better error handling and debugging. All errors extend from a base `TurKeyError` class and include structured information about what went wrong.
+
+### Error Types
+
+**NetworkError** (Retryable)
+
+- Network connectivity issues, timeouts, connection failures
+- HTTP status: `0` (no response), `503`, `504`
+- Use for: Retry logic, offline detection
+- Error code: `'NETWORK_ERROR'`
+
+**AuthenticationError** (Non-retryable)
+
+- Invalid credentials, missing authentication
+- HTTP status: `401`
+- Use for: Login failures, redirect to login
+- Error code: `'AUTHENTICATION_FAILED'`
+
+**AuthorizationError** (Non-retryable)
+
+- Insufficient permissions, forbidden resources
+- HTTP status: `403`
+- Use for: Feature gating, permission checks
+- Error code: `'AUTHORIZATION_FAILED'`
+
+**ValidationError** (Non-retryable)
+
+- Invalid input data, failed validation rules
+- HTTP status: `400`, `422`
+- Includes detailed field-level errors in `details[]`
+- Error code: `'VALIDATION_FAILED'`
+
+**RateLimitError** (Retryable)
+
+- Too many requests
+- HTTP status: `429`
+- Includes `retryAfter` timestamp for retry timing
+- Error code: `'RATE_LIMIT_EXCEEDED'`
+
+**ServerError** (Retryable)
+
+- Internal server errors, service unavailable
+- HTTP status: `500`, `502`, `503`, `504`
+- Use for: Retry logic, display maintenance message
+- Error code: `'SERVER_ERROR'`
+
+**TokenError** (Non-retryable)
+
+- Invalid, expired, or malformed tokens
+- HTTP status: `401`
+- Use for: Token refresh, re-authentication
+- Error code: `'TOKEN_INVALID'`
+
+**ConfigurationError** (Non-retryable)
+
+- Missing required configuration
+- Thrown at runtime when config is incomplete
+- Error code: `'CONFIGURATION_ERROR'`
+
+### Error Properties
+
+All errors include:
+
 ```typescript
-import { TurKeyAuthError } from '@jimmyjames88/turkey-sdk'
+interface TurKeyError extends Error {
+  name: string // Error type name
+  message: string // Human-readable description
+  code: string // Machine-readable error code
+  statusCode: number // HTTP status code
+  details?: ErrorDetail[] // Additional structured details
+  timestamp: Date // When error occurred
+  isRetryable: boolean // Whether operation can be retried
+  cause?: Error // Original error that caused this
+  toJSON(): object // Serialize for logging
+}
+```
+
+### Basic Error Handling
+
+```typescript
+import {
+  AuthenticationError,
+  ValidationError,
+  NetworkError,
+} from '@jimmyjames88/turkey-sdk'
 
 try {
-  await client.login({ ... })
+  await client.login({ email, password })
 } catch (error) {
-  if (error instanceof TurKeyAuthError) {
-    console.error('Auth failed:', error.message)
-    console.error('Code:', error.code)
-    console.error('Status:', error.statusCode)
-    console.error('Details:', error.details)
+  // Type-safe error checking
+  if (error instanceof AuthenticationError) {
+    console.error('Invalid credentials')
+  } else if (error instanceof ValidationError) {
+    // Access field-level validation errors
+    error.details?.forEach((detail) => {
+      console.error(`${detail.field}: ${detail.message}`)
+    })
+  } else if (error instanceof NetworkError) {
+    console.error('Network issue, please check connection')
   }
 }
 ```
+
+### Retry Logic with isRetryable
+
+```typescript
+import { isTurKeyError, isRetryableError } from '@jimmyjames88/turkey-sdk'
+
+async function loginWithRetry(maxAttempts = 3) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await client.login({ email, password })
+    } catch (error) {
+      // Only retry if error is retryable
+      if (!isRetryableError(error) || attempt === maxAttempts) {
+        throw error
+      }
+
+      // Exponential backoff
+      const delay = Math.min(1000 * Math.pow(2, attempt - 1), 30000)
+      await new Promise((resolve) => setTimeout(resolve, delay))
+    }
+  }
+}
+```
+
+### Rate Limit Handling
+
+```typescript
+import { RateLimitError } from '@jimmyjames88/turkey-sdk'
+
+try {
+  await client.login({ email, password })
+} catch (error) {
+  if (error instanceof RateLimitError && error.retryAfter) {
+    const waitMs = error.retryAfter.getTime() - Date.now()
+    console.log(`Rate limited. Retry after ${waitMs}ms`)
+
+    // Wait and retry
+    await new Promise((resolve) => setTimeout(resolve, waitMs))
+    return await client.login({ email, password })
+  }
+  throw error
+}
+```
+
+### User-Friendly Error Messages
+
+```typescript
+import { isTurKeyError } from '@jimmyjames88/turkey-sdk'
+
+function getUserFriendlyMessage(error: unknown): string {
+  if (!isTurKeyError(error)) {
+    return 'An unexpected error occurred'
+  }
+
+  switch (error.code) {
+    case 'AUTHENTICATION_FAILED':
+      return 'Invalid email or password'
+    case 'NETWORK_ERROR':
+      return 'Unable to connect. Please check your internet connection.'
+    case 'RATE_LIMIT_EXCEEDED':
+      return 'Too many attempts. Please try again later.'
+    case 'VALIDATION_FAILED':
+      return error.details?.map((d) => d.message).join(', ') ?? error.message
+    default:
+      return 'Something went wrong. Please try again.'
+  }
+}
+```
+
+### Type Guards
+
+```typescript
+import { isTurKeyError, isRetryableError } from '@jimmyjames88/turkey-sdk'
+
+try {
+  await client.login({ email, password })
+} catch (error) {
+  // Check if it's a TurKey error
+  if (isTurKeyError(error)) {
+    console.log('Error code:', error.code)
+    console.log('Status:', error.statusCode)
+
+    // Check if we should retry
+    if (isRetryableError(error)) {
+      console.log('This operation can be retried')
+    }
+  }
+}
+```
+
+### Error Logging
+
+```typescript
+try {
+  await client.login({ email, password })
+} catch (error) {
+  if (isTurKeyError(error)) {
+    // Structured logging with JSON serialization
+    console.error('Auth error:', error.toJSON())
+
+    // Send to monitoring service
+    monitoringService.captureError({
+      name: error.name,
+      code: error.code,
+      statusCode: error.statusCode,
+      message: error.message,
+      timestamp: error.timestamp,
+      isRetryable: error.isRetryable,
+    })
+  }
+}
+```
+
+### Migration from TurKeyAuthError
+
+The legacy `TurKeyAuthError` is still exported for backwards compatibility but is deprecated. Migrate to specific error types:
+
+```typescript
+// Before (deprecated)
+import { TurKeyAuthError } from '@jimmyjames88/turkey-sdk'
+
+try {
+  await client.login({ email, password })
+} catch (error) {
+  if (error instanceof TurKeyAuthError) {
+    // Generic handling
+  }
+}
+
+// After (recommended)
+import {
+  AuthenticationError,
+  NetworkError,
+  isTurKeyError,
+} from '@jimmyjames88/turkey-sdk'
+
+try {
+  await client.login({ email, password })
+} catch (error) {
+  if (error instanceof AuthenticationError) {
+    // Specific authentication handling
+  } else if (error instanceof NetworkError) {
+    // Specific network handling
+  } else if (isTurKeyError(error)) {
+    // Generic TurKey error handling
+  }
+}
+```
+
+For comprehensive error handling examples including retry logic, validation handling, and monitoring integration, see [`examples/error-handling.ts`](./examples/error-handling.ts).
 
 ## Configuration
 
@@ -2219,8 +2641,131 @@ interface TurKeyConfig {
   appId?: string // Default app identifier for tokens
   timeout?: number // Request timeout (default: 10000ms)
   serviceApiKey?: string // Service API key for protected backend endpoints
+  retry?: RetryConfig | false // Automatic retry configuration
+}
+
+interface RetryConfig {
+  maxAttempts?: number // Max retry attempts (default: 3)
+  initialDelayMs?: number // Initial delay before retry (default: 1000ms)
+  maxDelayMs?: number // Maximum delay between retries (default: 30000ms)
+  backoffMultiplier?: number // Exponential backoff multiplier (default: 2)
+  jitter?: boolean // Randomize delays to prevent thundering herd (default: true)
+  shouldRetry?: (error: unknown, attempt: number) => boolean // Custom retry logic
 }
 ```
+
+### Automatic Retry with Exponential Backoff
+
+The SDK automatically retries transient failures (network errors, server errors, rate limits) using exponential backoff with jitter. This is enabled by default.
+
+**Default Behavior:**
+
+```typescript
+const client = new TurKeyClient({
+  baseUrl: 'http://localhost:3000',
+  appId: 'my-app',
+  // Default retry config (can be omitted):
+  // - maxAttempts: 3
+  // - initialDelayMs: 1000 (1 second)
+  // - maxDelayMs: 30000 (30 seconds)
+  // - backoffMultiplier: 2 (doubles each attempt)
+  // - jitter: true (randomizes 50-100% of calculated delay)
+})
+
+// Automatically retries on NetworkError, ServerError, RateLimitError
+try {
+  const response = await client.login({ email, password })
+} catch (error) {
+  // Error thrown after all retry attempts exhausted
+}
+```
+
+**Retry Timing:**
+
+Exponential backoff means delays increase exponentially:
+
+- Attempt 1: Wait 1s before retry
+- Attempt 2: Wait 2s before retry
+- Attempt 3: Wait 4s before retry
+- Maximum wait is capped at `maxDelayMs`
+
+**Custom Retry Configuration:**
+
+```typescript
+const client = new TurKeyClient({
+  baseUrl: 'http://localhost:3000',
+  appId: 'my-app',
+  retry: {
+    maxAttempts: 5, // Try more times
+    initialDelayMs: 500, // Start with shorter delay
+    maxDelayMs: 10000, // Cap at 10 seconds
+    backoffMultiplier: 1.5, // Slower growth
+  },
+})
+```
+
+**Disable Retry:**
+
+```typescript
+const client = new TurKeyClient({
+  baseUrl: 'http://localhost:3000',
+  appId: 'my-app',
+  retry: false, // No automatic retries
+})
+```
+
+**Custom Retry Logic:**
+
+```typescript
+import { isRetryableError, NetworkError } from '@jimmyjames88/turkey-sdk'
+
+const client = new TurKeyClient({
+  baseUrl: 'http://localhost:3000',
+  appId: 'my-app',
+  retry: {
+    maxAttempts: 3,
+    shouldRetry: (error, attempt) => {
+      // Only retry network errors
+      if (error instanceof NetworkError) {
+        console.log(`Network error, retrying (attempt ${attempt})`)
+        return true
+      }
+
+      // Use default logic for other errors
+      return isRetryableError(error)
+    },
+  },
+})
+```
+
+**Rate Limit Handling:**
+
+The SDK automatically handles rate limits by waiting for the `retryAfter` duration specified in the error response:
+
+```typescript
+// SDK automatically waits for retryAfter seconds before retrying
+const response = await client.login({ email, password })
+// If rate limited:
+// 1. Extract retryAfter from RateLimitError
+// 2. Wait specified seconds
+// 3. Retry request
+// 4. Continue with remaining retry attempts if needed
+```
+
+**Token Refresh Deduplication:**
+
+Multiple simultaneous token refresh calls are automatically deduplicated to prevent race conditions:
+
+```typescript
+// All three calls share the same underlying request
+const [tokens1, tokens2, tokens3] = await Promise.all([
+  client.refresh({ refreshToken }),
+  client.refresh({ refreshToken }), // Reuses first request
+  client.refresh({ refreshToken }), // Reuses first request
+])
+```
+
+For comprehensive retry examples, see [`examples/retry-configuration.ts`](./examples/retry-configuration.ts).
 
 ### Service API Key
 
