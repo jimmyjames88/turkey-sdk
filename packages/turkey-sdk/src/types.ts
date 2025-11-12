@@ -70,6 +70,17 @@ export interface TurKeyConfig {
    */
   timeout?: number
   /**
+   * JWKS (JSON Web Key Set) cache time-to-live in milliseconds.
+   * Reduces load on the authentication server by caching public keys
+   * used for JWT signature verification.
+   *
+   * - Lower values (e.g., 300000 = 5 min): Respond faster to key rotation
+   * - Higher values (e.g., 7200000 = 2 hrs): Better performance, less traffic
+   *
+   * @default 3600000 (1 hour)
+   */
+  jwksCacheTtl?: number
+  /**
    * Service API key for backend-to-backend authenticated calls.
    * Required for introspection and revocation-check endpoints.
    * Must match TURKEY_SERVICE_API_KEY on the TurKey server.

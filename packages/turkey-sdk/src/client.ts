@@ -62,14 +62,16 @@ export class TurKeyClient {
    * @param config.appId - Optional application identifier for token scoping
    * @param config.timeout - Request timeout in milliseconds (default: 10000)
    * @param config.serviceApiKey - Service API key for backend-to-backend calls
+   * @param config.jwksCacheTtl - JWKS cache time-to-live in milliseconds (default: 3600000 = 1 hour)
    * @param config.retry - Retry configuration or false to disable (default: enabled with 3 attempts)
    */
   constructor(config: TurKeyConfig) {
     this.config = {
       timeout: 10000,
+      jwksCacheTtl: 3600000, // 1 hour default
       ...config,
     }
-    this.tokenManager = new TokenManager(this.config)
+    this.tokenManager = new TokenManager(this.config, this.config.jwksCacheTtl)
 
     // Set default retry config
     this.retryConfig =
@@ -938,5 +940,32 @@ export class TurKeyClient {
    */
   getTimeUntilExpiry(token: string): number {
     return this.tokenManager.getTimeUntilExpiry(token)
+  }
+
+  /**
+   * Clear the JWKS (JSON Web Key Set) cache.
+   *
+   * Forces a fresh fetch of cryptographic keys from the server on the
+   * next token verification. Useful after key rotation or when troubleshooting
+   * token validation issues.
+   *
+   * The JWKS cache reduces load on the authentication server by caching
+   * public keys used for JWT signature verification. Keys are cached with
+   * a configurable TTL (default 1 hour).
+   *
+   * @example
+   * ```typescript
+   * // After server key rotation notification
+   * client.clearJWKSCache();
+   *
+   * // During troubleshooting
+   * if (tokenValidationFailing) {
+   *   client.clearJWKSCache();
+   *   await client.refresh({ refreshToken });
+   * }
+   * ```
+   */
+  clearJWKSCache(): void {
+    this.tokenManager.clearJWKSCache()
   }
 }

@@ -298,6 +298,7 @@ export function createTurkeyMiddleware(
     development: userConfig.development ?? envConfig.development ?? false,
     checkRevocation: userConfig.checkRevocation !== false, // Default to true
     rateLimitHeaders: userConfig.rateLimitHeaders !== false, // Default to true
+    jwksCacheTtl: userConfig.jwksCacheTtl ?? 3600000, // Default: 1 hour
     onError:
       userConfig.onError || createDefaultErrorHandler(envConfig.development),
     cors: corsConfig,
@@ -361,6 +362,7 @@ export function createTurkeyMiddleware(
       const payload = (await verifyJwt(token, {
         baseUrl: config.baseUrl,
         appId: config.appId,
+        jwksCacheTtl: config.jwksCacheTtl,
       })) as TurKeyPayload
 
       // Check if token has been revoked (if jti present)

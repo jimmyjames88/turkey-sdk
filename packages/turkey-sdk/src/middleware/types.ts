@@ -63,6 +63,7 @@ export interface TurKeyMiddlewareConfig {
   cors?: CorsConfig | boolean // CORS configuration - true for defaults, false to disable, or custom config
   logging?: LoggingConfig | boolean // Request logging - true for defaults, false to disable, or custom config
   rateLimitHeaders?: boolean // Expose rate limit headers (default: true)
+  jwksCacheTtl?: number // JWKS cache time-to-live in milliseconds (default: 3600000 = 1 hour)
 }
 
 /**

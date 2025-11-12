@@ -1,6 +1,11 @@
 import { jwtVerify, createRemoteJWKSet } from 'jose'
 import type { JWTPayload, TurKeyConfig } from './types'
 
+interface JWKSCache {
+  jwks: ReturnType<typeof createRemoteJWKSet>
+  expiresAt: number
+}
+
 /**
  * Manages JWT token operations including validation, decoding, and expiry checks.
  *
@@ -10,22 +15,53 @@ import type { JWTPayload, TurKeyConfig } from './types'
  * @internal This class is used internally by TurKeyClient
  */
 export class TokenManager {
-  private jwks: ReturnType<typeof createRemoteJWKSet> | null = null
+  private jwksCache: JWKSCache | null = null
   private config: TurKeyConfig
+  private readonly jwksCacheTtlMs: number
 
-  constructor(config: TurKeyConfig) {
+  constructor(config: TurKeyConfig, jwksCacheTtlMs: number = 3600000) {
     this.config = config
+    // Default TTL: 1 hour (3600000ms)
+    // Balances security (responds to key rotation) with performance
+    this.jwksCacheTtlMs = jwksCacheTtlMs
   }
 
   /**
-   * Initialize JWKS for token verification
+   * Initialize or retrieve cached JWKS for token verification.
+   * JWKS are cached with a configurable TTL (default 1 hour).
    */
   private initJWKS() {
-    if (!this.jwks) {
-      const jwksUrl = new URL('/.well-known/jwks.json', this.config.baseUrl)
-      this.jwks = createRemoteJWKSet(jwksUrl)
+    const now = Date.now()
+
+    // Return cached JWKS if still valid
+    if (this.jwksCache && now < this.jwksCache.expiresAt) {
+      return this.jwksCache.jwks
     }
-    return this.jwks
+
+    // Create new JWKS and cache it
+    const jwksUrl = new URL('/.well-known/jwks.json', this.config.baseUrl)
+    const jwks = createRemoteJWKSet(jwksUrl)
+
+    this.jwksCache = {
+      jwks,
+      expiresAt: now + this.jwksCacheTtlMs,
+    }
+
+    return jwks
+  }
+
+  /**
+   * Clear the JWKS cache, forcing a fresh fetch on next verification.
+   * Useful after key rotation or when troubleshooting token validation issues.
+   *
+   * @example
+   * ```typescript
+   * // After server key rotation
+   * tokenManager.clearJWKSCache();
+   * ```
+   */
+  clearJWKSCache(): void {
+    this.jwksCache = null
   }
 
   /**
