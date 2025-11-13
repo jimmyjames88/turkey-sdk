@@ -2924,6 +2924,90 @@ While React hooks don't need dedicated testing, **turkey-sdk-next middleware SHO
 
 See roadmap for Phase 3 implementation details.
 
+### Multi-App Isolation Testing
+
+If you're deploying Turkey across multiple domains with app-specific user isolation, the SDK includes comprehensive integration tests to verify proper isolation.
+
+**What it tests:**
+
+- ✅ Same email can register in different apps (separate user records)
+- ✅ Independent login flows per app with different tokens
+- ✅ JWT audience claims are app-specific (`app-1` vs `app-2`)
+- ✅ Cross-app token verification fails (audience mismatch)
+- ✅ User IDs are isolated per app (same email = different users)
+- ✅ Token revocation is app-scoped (doesn't affect other apps)
+- ✅ Different passwords per app for same email
+- ✅ Refresh tokens don't work cross-app
+
+**Running multi-app isolation tests:**
+
+```bash
+# Start Turkey server first
+cd ../../turkey && npm run dev
+
+# In another terminal, run integration tests
+cd packages/turkey-sdk
+npm run test:integration -- --testNamePattern="Multi-App Isolation"
+```
+
+**Test file:** [`src/__tests__/integration/multi-app-isolation.test.ts`](src/__tests__/integration/multi-app-isolation.test.ts)
+
+**Why this matters:**
+
+If you're deploying Turkey to serve multiple domains (e.g., `blog.com`, `shop.com`, `admin.com`), each domain should have completely isolated user bases. The same `user@example.com` should be able to exist in all three apps as separate accounts with different passwords and profiles.
+
+**Example multi-app architecture:**
+
+```typescript
+// Blog App
+const blogClient = new TurKeyClient({
+  baseUrl: 'https://auth.yourcompany.com',
+  appId: 'blog-app',
+})
+
+// Shop App
+const shopClient = new TurKeyClient({
+  baseUrl: 'https://auth.yourcompany.com',
+  appId: 'shop-app',
+})
+
+// Same email, different user records
+await blogClient.register({
+  email: 'user@example.com',
+  password: 'blog-pass-123',
+})
+await shopClient.register({
+  email: 'user@example.com',
+  password: 'shop-pass-456',
+})
+// ✅ Both succeed - completely isolated
+
+// Login to blog
+const blogToken = await blogClient.login({
+  email: 'user@example.com',
+  password: 'blog-pass-123',
+})
+
+// Try to use blog token in shop
+const shopUser = await shopClient.getCurrentUser(blogToken)
+// ❌ Fails - audience mismatch (blog-app !== shop-app)
+```
+
+**Database schema changes:**
+
+Multi-app isolation requires the Turkey server to have migrations applied that add `app_id` columns:
+
+```sql
+-- users table: composite unique constraint on (email, app_id)
+CREATE UNIQUE INDEX users_email_app_idx ON users(email, app_id);
+
+-- revoked_jti table: app-scoped token revocation
+ALTER TABLE revoked_jti ADD COLUMN app_id VARCHAR(100);
+CREATE INDEX revoked_jti_app_idx ON revoked_jti(app_id);
+```
+
+These changes are included in Turkey server migrations 0003 and 0004.
+
 ## Development
 
 ```bash
