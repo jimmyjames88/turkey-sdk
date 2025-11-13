@@ -218,7 +218,7 @@ describe('Multi-App Isolation', () => {
   })
 
   describe('Refresh Token Isolation', () => {
-    it('should refresh tokens within their own app', async () => {
+    it('should not allow cross-app refresh token usage', async () => {
       const refreshEmail = generateTestEmail()
 
       await app1Client.register({
@@ -257,6 +257,17 @@ describe('Multi-App Isolation', () => {
       // Verify app2 refreshed token has correct audience
       const app2RefreshDecoded = app2Client.decodeToken(app2Refresh.accessToken)
       expect(app2RefreshDecoded?.aud).toBe(INTEGRATION_CONFIG.appId2)
+
+      // CRITICAL SECURITY TEST: Cross-app refresh should fail
+      // App1 refresh token should not work in app2 client
+      await expect(
+        app2Client.refresh({ refreshToken: app1Login.refreshToken })
+      ).rejects.toThrow()
+
+      // App2 refresh token should not work in app1 client
+      await expect(
+        app1Client.refresh({ refreshToken: app2Login.refreshToken })
+      ).rejects.toThrow()
     })
   })
 })
