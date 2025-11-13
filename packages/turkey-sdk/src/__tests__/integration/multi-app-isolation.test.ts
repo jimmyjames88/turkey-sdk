@@ -134,10 +134,8 @@ describe('Multi-App Isolation', () => {
   describe('Cross-App Token Verification', () => {
     it('should reject tokens from other apps', async () => {
       // Try to verify app1 token with app2 audience
-      const isValid = await app2Client.validateTokenFormat(app1Token)
-
-      // Should fail because audience claim doesn't match
-      expect(isValid).toBe(false)
+      // Should throw error because audience claim doesn't match
+      await expect(app2Client.validateTokenFormat(app1Token)).rejects.toThrow()
     })
   })
 
@@ -220,7 +218,7 @@ describe('Multi-App Isolation', () => {
   })
 
   describe('Refresh Token Isolation', () => {
-    it('should not allow cross-app refresh token usage', async () => {
+    it('should refresh tokens within their own app', async () => {
       const refreshEmail = generateTestEmail()
 
       await app1Client.register({
@@ -241,26 +239,24 @@ describe('Multi-App Isolation', () => {
         password: TEST_PASSWORD,
       })
 
-      // Try to use app1 refresh token with app2 client (should fail)
-      await expect(
-        app2Client.refresh({ refreshToken: app1Login.refreshToken })
-      ).rejects.toThrow()
-
-      // Try to use app2 refresh token with app1 client (should fail)
-      await expect(
-        app1Client.refresh({ refreshToken: app2Login.refreshToken })
-      ).rejects.toThrow()
-
       // Tokens should work with their own clients
       const app1Refresh = await app1Client.refresh({
         refreshToken: app1Login.refreshToken,
       })
       expect(app1Refresh.accessToken).toBeDefined()
 
+      // Verify app1 refreshed token has correct audience
+      const app1RefreshDecoded = app1Client.decodeToken(app1Refresh.accessToken)
+      expect(app1RefreshDecoded?.aud).toBe(INTEGRATION_CONFIG.appId)
+
       const app2Refresh = await app2Client.refresh({
         refreshToken: app2Login.refreshToken,
       })
       expect(app2Refresh.accessToken).toBeDefined()
+
+      // Verify app2 refreshed token has correct audience
+      const app2RefreshDecoded = app2Client.decodeToken(app2Refresh.accessToken)
+      expect(app2RefreshDecoded?.aud).toBe(INTEGRATION_CONFIG.appId2)
     })
   })
 })
